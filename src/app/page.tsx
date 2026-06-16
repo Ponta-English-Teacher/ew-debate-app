@@ -26,9 +26,9 @@ export default function HomePage() {
 
       <Link
         href="/teacher"
-        className="text-xs text-slate-400 hover:text-indigo-600 transition-colors"
+        className="text-[11px] text-slate-300 hover:text-slate-400 transition-colors mt-4"
       >
-        Teacher panel
+        For teachers
       </Link>
     </div>
   );
