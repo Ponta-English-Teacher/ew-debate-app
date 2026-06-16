@@ -23,6 +23,13 @@ export default function SessionDetail() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Reset discussion state
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPhrase, setResetPhrase] = useState('');
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
+
   useEffect(() => {
     if (!sessionId) return;
     Promise.all([
@@ -99,6 +106,46 @@ export default function SessionDetail() {
     if (res.ok) {
       setMotions(prev => prev.filter(m => m.id !== id));
       setConfirmDelete(null);
+    }
+  }
+
+  function openResetModal() {
+    setResetPhrase('');
+    setResetError('');
+    setResetSuccess(false);
+    setShowResetModal(true);
+  }
+
+  function closeResetModal() {
+    if (resetting) return;
+    setShowResetModal(false);
+    setResetPhrase('');
+    setResetError('');
+  }
+
+  async function handleReset() {
+    if (resetPhrase !== 'RESET' || !session) return;
+    setResetting(true);
+    setResetError('');
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/reset`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_MODERATOR_PASSWORD}`,
+        },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setResetError(data.error ?? 'Reset failed. Please try again.');
+        return;
+      }
+      setResetSuccess(true);
+      setShowResetModal(false);
+      setResetPhrase('');
+    } catch {
+      setResetError('Network error. Please try again.');
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -241,7 +288,99 @@ export default function SessionDetail() {
 
           {addError && <p className="text-xs text-rose-600 mt-2">{addError}</p>}
         </div>
+
+        {/* Danger Zone */}
+        <div className="mt-8 border border-rose-200 rounded-2xl p-6">
+          <h2 className="text-xs font-semibold text-rose-600 uppercase tracking-widest mb-1">
+            Danger Zone
+          </h2>
+          <p className="text-xs text-slate-500 mb-4">
+            These actions affect student discussion data and cannot be undone.
+          </p>
+
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm font-semibold text-slate-800 mb-0.5">Reset discussion data</p>
+              <p className="text-xs text-slate-500">
+                Permanently deletes all posts, replies, and votes for this session.
+                The session, motions, and student names are kept.
+              </p>
+            </div>
+            <button
+              onClick={openResetModal}
+              className="shrink-0 text-xs font-semibold text-rose-600 border border-rose-300 hover:bg-rose-50 rounded-lg px-4 py-2 transition-colors"
+            >
+              Reset discussion data
+            </button>
+          </div>
+
+          {resetSuccess && (
+            <p className="text-xs text-emerald-600 mt-4 font-medium">
+              Discussion data has been reset. The board is now empty.
+            </p>
+          )}
+        </div>
       </div>
+
+      {/* Reset confirmation modal */}
+      {showResetModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+          onClick={e => { if (e.target === e.currentTarget) closeResetModal(); }}
+        >
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            {/* Warning header */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <h2 className="text-base font-bold text-slate-800">Reset discussion data?</h2>
+            </div>
+
+            <p className="text-sm text-slate-600 leading-relaxed mb-5">
+              This will permanently delete all posts, replies, and votes for this session.{' '}
+              <span className="font-semibold text-slate-800">This cannot be undone.</span>
+            </p>
+
+            <p className="text-xs text-slate-500 mb-2">
+              Type <span className="font-mono font-bold text-slate-800">RESET</span> to confirm:
+            </p>
+            <input
+              type="text"
+              value={resetPhrase}
+              onChange={e => { setResetPhrase(e.target.value); setResetError(''); }}
+              placeholder="RESET"
+              autoFocus
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 font-mono outline-none focus:ring-2 focus:ring-rose-400 focus:border-transparent transition mb-3"
+            />
+
+            {resetError && (
+              <p className="text-xs text-rose-600 mb-3">{resetError}</p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={closeResetModal}
+                disabled={resetting}
+                className="flex-1 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 rounded-lg px-4 py-2.5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={resetPhrase !== 'RESET' || resetting}
+                className="flex-1 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg px-4 py-2.5 transition-colors"
+              >
+                {resetting ? 'Deleting…' : 'Delete all data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
