@@ -270,16 +270,6 @@ export default function MotionRiver({
               <p className="text-lg font-bold text-slate-900 leading-none">{participantCount}</p>
               <p className="text-[11px] text-slate-500 mt-0.5">Participants</p>
             </div>
-            <div className="w-px h-8 bg-slate-200" />
-            <button
-              onClick={() => onFormChange({ kind: 'modal-claim', motionId: selectedMotion.id })}
-              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg px-4 py-2 transition-colors"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              Add your opinion
-            </button>
           </div>
         </div>
 
@@ -338,8 +328,25 @@ export default function MotionRiver({
 
         {/* Main feed — capped at readable width, left-aligned */}
         <div className="flex-1 min-w-0 max-w-[960px] flex flex-col gap-3">
+
+          {/* In-feed entry point — always above posts, aligned with cards */}
+          <div>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 px-0.5">
+              What do you think?
+            </p>
+            <button
+              onClick={() => onFormChange({ kind: 'modal-claim', motionId: selectedMotion.id })}
+              className="w-full flex items-center gap-2 bg-white border border-dashed border-slate-300 rounded px-4 py-3 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors text-left"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span className="text-sm">Add your opinion</span>
+            </button>
+          </div>
+
           {filteredClusters.length === 0 ? (
-            <div className="text-center py-16">
+            <div className="text-center py-10">
               <p className="text-sm text-slate-400">
                 {filter === 'all'
                   ? 'No posts yet. Be the first to share your opinion.'

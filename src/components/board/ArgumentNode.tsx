@@ -113,19 +113,19 @@ export default function ArgumentNode({
         {argument.content}
       </p>
 
-      {/* Footer — minimal, visually recessive */}
-      <div className="flex items-center gap-4 px-3 pb-1.5 pt-1 border-t border-slate-100">
+      {/* Footer — reply is primary action, agree + explain are secondary */}
+      <div className="flex items-center gap-3 px-3 pb-2 pt-1.5 border-t border-slate-100">
         {onBuildOn && (
           <button
             onClick={() => onBuildOn(argument)}
-            className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-indigo-600 transition-colors"
+            className="flex items-center gap-1.5 text-sm font-medium text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded px-2.5 py-1 transition-colors whitespace-nowrap"
           >
             <ReplyIcon />
-            <span>Reply{replyCount != null && replyCount > 0 ? ` ${replyCount}` : ''}</span>
+            <span>Write a reply{replyCount != null && replyCount > 0 ? ` (${replyCount})` : ''}</span>
           </button>
         )}
 
-        <div className="flex items-center gap-1 text-[11px] text-slate-500">
+        <div className="flex items-center gap-1 text-[11px] text-slate-400 ml-2">
           <ReactionButton
             argumentId={argument.id}
             voteCount={argument.vote_count}
@@ -133,7 +133,7 @@ export default function ArgumentNode({
             studentId={studentId}
             onVoteChange={onVoteChange}
           />
-          <span className="text-slate-400">Agree</span>
+          <span>Agree</span>
         </div>
 
         {onExplain && (
