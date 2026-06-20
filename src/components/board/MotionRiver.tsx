@@ -20,6 +20,21 @@ export interface Cluster {
   responses: Argument[];
 }
 
+// ── Thread chain builder — walk ancestors for discuss reply context ───────────
+
+function buildThreadChain(parentArg: Argument, argList: Argument[]): string[] {
+  const chain: string[] = [];
+  let currentId: string | null = parentArg.id;
+  let limit = 4; // cap at 4 levels to avoid overly long prompts
+  while (currentId && limit-- > 0) {
+    const arg = argList.find(a => a.id === currentId);
+    if (!arg) break;
+    chain.unshift(arg.content); // oldest first
+    currentId = arg.parent_id;
+  }
+  return chain;
+}
+
 // ── Cluster builder ───────────────────────────────────────────────────────────
 
 function buildClusters(args: Argument[], motionId: string): Cluster[] {
@@ -375,6 +390,7 @@ export default function MotionRiver({
           motionText={selectedMotion.motion_text}
           parentContent={form.kind === 'modal-response' ? form.parent.content : undefined}
           parentId={form.kind === 'modal-response' ? form.parent.id : undefined}
+          threadChain={form.kind === 'modal-response' ? buildThreadChain(form.parent, argList) : undefined}
           mode={form.kind === 'modal-claim' ? 'claim' : 'response'}
           sessionId={sessionId}
           motionId={selectedMotion.id}

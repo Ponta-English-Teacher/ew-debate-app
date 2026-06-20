@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { Argument, ResponseType } from '@/types';
+import { LABEL_STYLE, type DebateLabel } from '@/lib/debateLabels';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -12,6 +13,7 @@ interface Props {
   motionText: string;
   parentContent?: string;
   parentId?: string;
+  threadChain?: string[];  // ancestor posts oldest-first, for discuss reply context
   mode: 'claim' | 'response';
   sessionId: string;
   motionId: string;
@@ -22,6 +24,17 @@ interface Props {
 
 type Helper = 'express' | 'check' | 'discuss' | null;
 
+const DEBATE_LABELS: DebateLabel[] = ['PRO', 'CON', 'QUESTION', 'OTHER'];
+
+// Map student-selected label + context (claim vs reply) → ResponseType stored in DB
+function computeResponseType(label: DebateLabel | null, mode: 'claim' | 'response'): ResponseType {
+  if (!label) return mode === 'claim' ? 'claim' : 'support'; // fallback (Post disabled anyway)
+  if (label === 'PRO')      return mode === 'claim' ? 'claim'    : 'support';
+  if (label === 'CON')      return mode === 'claim' ? 'counter'  : 'challenge';
+  if (label === 'QUESTION') return 'question';
+  return mode === 'claim' ? 'evidence' : 'distinction';
+}
+
 const inputClass =
   'w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400 leading-relaxed';
 
@@ -29,6 +42,7 @@ export default function AIDiscussionModal({
   motionText,
   parentContent,
   parentId,
+  threadChain,
   mode,
   sessionId,
   motionId,
@@ -38,10 +52,10 @@ export default function AIDiscussionModal({
 }: Props) {
   // ── Main textbox ───────────────────────────────────────────────────────────
   const [draft, setDraft] = useState('');
-  // Tracks AI-suggested response_type; updated when AI provides one
-  const [responseType, setResponseType] = useState<ResponseType>(
-    mode === 'claim' ? 'claim' : 'support'
-  );
+
+  // ── Student-selected contribution type ────────────────────────────────────
+  // This is the authoritative type — never overridden by AI
+  const [selectedLabel, setSelectedLabel] = useState<DebateLabel | null>(null);
 
   // ── Which helper panel is open ─────────────────────────────────────────────
   const [helper, setHelper] = useState<Helper>(null);
@@ -51,7 +65,7 @@ export default function AIDiscussionModal({
   const [expressReply, setExpressReply]       = useState('');
   const [expressOptions, setExpressOptions]   = useState<string[]>([]);
 
-  // ── Check (Correct Mistakes) state ────────────────────────────────────────
+  // ── Check (Edit English) state ────────────────────────────────────────────
   const [checkSuggestion, setCheckSuggestion] = useState<string | null>(null);
 
   // ── Discuss (Talk it through) state ───────────────────────────────────────
@@ -104,7 +118,11 @@ export default function AIDiscussionModal({
     const userMsg: Message = { role: 'user', content: text };
     const msgs = [userMsg];
     setExpressMessages(msgs);
-    const data = await callAI({ messages: msgs, motionText, parentContent, mode, helpMode: 'express' });
+    const data = await callAI({
+      messages: msgs, motionText, parentContent, mode,
+      selectedLabel,
+      helpMode: 'express',
+    });
     if (!data) return;
     if (data.phase === 'options') {
       setExpressOptions(data.options as string[]);
@@ -120,7 +138,11 @@ export default function AIDiscussionModal({
     const updated = [...expressMessages, userMsg];
     setExpressMessages(updated);
     setExpressReply('');
-    const data = await callAI({ messages: updated, motionText, parentContent, mode, helpMode: 'express' });
+    const data = await callAI({
+      messages: updated, motionText, parentContent, mode,
+      selectedLabel,
+      helpMode: 'express',
+    });
     if (!data) return;
     if (data.phase === 'options') {
       setExpressOptions(data.options as string[]);
@@ -136,7 +158,7 @@ export default function AIDiscussionModal({
     setExpressOptions([]);
   }
 
-  // ── Check (Correct Mistakes) ───────────────────────────────────────────────
+  // ── Check (Edit English) ───────────────────────────────────────────────────
 
   async function activateCheck() {
     const text = draft.trim();
@@ -146,12 +168,13 @@ export default function AIDiscussionModal({
     const data = await callAI({
       messages: [{ role: 'user', content: text }],
       motionText, parentContent, mode,
+      selectedLabel,
       helpMode: 'check',
     });
     if (!data) return;
     if (data.phase === 'draft') {
       setCheckSuggestion(data.suggestion as string);
-      if (data.response_type) setResponseType(data.response_type as ResponseType);
+      // selectedLabel is authoritative — AI response_type is ignored
     }
   }
 
@@ -182,13 +205,15 @@ export default function AIDiscussionModal({
     const data = await callAI({
       messages: msgs,
       motionText, parentContent, mode,
+      threadChain: threadChain ?? null,
+      selectedLabel,
       helpMode: 'discuss',
       currentDraft: currentDraft ?? null,
     });
     if (!data) return;
     if (data.phase === 'draft') {
       setDiscussSuggestion(data.suggestion as string);
-      if (data.response_type) setResponseType(data.response_type as ResponseType);
+      // selectedLabel is authoritative — AI response_type is ignored
       if (data.message) {
         setDiscussMessages(prev => [...prev, { role: 'assistant', content: data.message as string }]);
       }
@@ -218,7 +243,7 @@ export default function AIDiscussionModal({
 
   async function handlePost() {
     const content = draft.trim();
-    if (!content) return;
+    if (!content || !selectedLabel) return;
     setPosting(true);
     setError('');
     try {
@@ -230,7 +255,7 @@ export default function AIDiscussionModal({
           motion_id: motionId,
           parent_id: parentId ?? null,
           student_id: studentId,
-          response_type: responseType,
+          response_type: computeResponseType(selectedLabel, mode),
           content,
         }),
       });
@@ -272,6 +297,9 @@ export default function AIDiscussionModal({
     );
   }
 
+  const canPost = !!draft.trim() && !!selectedLabel;
+  const canHelp = !!selectedLabel;
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -286,7 +314,7 @@ export default function AIDiscussionModal({
           <div className="flex-1 min-w-0 pr-3">
             {parentContent ? (
               <>
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">About this:</p>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-0.5">Replying to:</p>
                 <p className="text-xs text-slate-600 line-clamp-2 leading-snug">{parentContent}</p>
               </>
             ) : (
@@ -303,7 +331,33 @@ export default function AIDiscussionModal({
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
 
-          {/* ── Main textbox (always visible) ──────────────────────────────── */}
+          {/* ── Contribution type selector ───────────────────────────────────── */}
+          <div>
+            <p className="text-xs font-medium text-slate-500 mb-1.5">
+              Contribution type <span className="text-rose-400 font-semibold">*</span>
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {DEBATE_LABELS.map(label => {
+                const s = LABEL_STYLE[label];
+                const isActive = selectedLabel === label;
+                return (
+                  <button
+                    key={label}
+                    onClick={() => setSelectedLabel(label)}
+                    className="text-[11px] font-bold py-2 rounded border transition-colors"
+                    style={isActive
+                      ? { color: s.text, backgroundColor: s.bg, borderColor: s.border }
+                      : { color: '#94A3B8', backgroundColor: 'white', borderColor: '#E2E8F0' }
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Main textbox ─────────────────────────────────────────────────── */}
           <div>
             <p className="text-xs font-medium text-slate-500 mb-1.5">What do you think?</p>
             <textarea
@@ -316,13 +370,13 @@ export default function AIDiscussionModal({
             />
           </div>
 
-          {/* ── Post button (always visible, always posts the main textbox) ── */}
+          {/* ── Post button ──────────────────────────────────────────────────── */}
           <button
             onClick={handlePost}
-            disabled={!draft.trim() || posting || isThinking}
+            disabled={!canPost || posting || isThinking}
             className="w-full text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl px-4 py-2.5 transition-colors"
           >
-            {posting ? 'Posting…' : 'Post this →'}
+            {posting ? 'Posting…' : selectedLabel ? `Post as ${selectedLabel} →` : 'Post this →'}
           </button>
 
           {/* ── Helper selector ─────────────────────────────────────────────── */}
@@ -346,7 +400,7 @@ export default function AIDiscussionModal({
                     else if (id === 'check') activateCheck();
                     else activateDiscuss();
                   }}
-                  disabled={(needsDraft && !draft.trim()) || (isThinking && helper !== id)}
+                  disabled={!canHelp || (needsDraft && !draft.trim()) || (isThinking && helper !== id)}
                   className={`text-xs font-medium border rounded-lg px-2 py-2.5 transition-colors disabled:opacity-40 ${
                     helper === id
                       ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
@@ -357,6 +411,9 @@ export default function AIDiscussionModal({
                 </button>
               ))}
             </div>
+            {!canHelp && (
+              <p className="text-[11px] text-slate-400 text-center">Select a contribution type to unlock helpers</p>
+            )}
           </div>
 
           {/* ── EXPRESS PANEL (How to say it) ───────────────────────────────── */}
@@ -364,7 +421,6 @@ export default function AIDiscussionModal({
             <div className="flex flex-col gap-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">How to say it</p>
 
-              {/* Conversation (only shown when AI asked a clarification) */}
               {expressMessages.some(m => m.role === 'assistant') && (
                 <div className="flex flex-col gap-2">
                   {expressMessages.map((m, i) => bubble(m, i))}
@@ -373,7 +429,6 @@ export default function AIDiscussionModal({
 
               {isThinking && thinkingDot()}
 
-              {/* Reply input — shown when AI asked a clarification and no options yet */}
               {!isThinking && expressMessages.some(m => m.role === 'assistant') && expressOptions.length === 0 && (
                 <div className="flex gap-2">
                   <input
@@ -391,7 +446,6 @@ export default function AIDiscussionModal({
                 </div>
               )}
 
-              {/* Options — click to copy into main textbox */}
               {!isThinking && expressOptions.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <p className="text-xs text-slate-500">Choose a version — click to use it:</p>
@@ -409,7 +463,7 @@ export default function AIDiscussionModal({
             </div>
           )}
 
-          {/* ── CHECK PANEL (Correct Mistakes) ──────────────────────────────── */}
+          {/* ── CHECK PANEL (Edit English) ───────────────────────────────────── */}
           {helper === 'check' && (
             <div className="flex flex-col gap-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Corrected version</p>
@@ -437,7 +491,6 @@ export default function AIDiscussionModal({
             <div className="flex flex-col gap-3 bg-slate-50 border border-slate-100 rounded-xl p-3">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Talk it through</p>
 
-              {/* Chat messages */}
               {discussMessages.length > 0 && (
                 <div className="flex flex-col gap-2">
                   {discussMessages.map((m, i) => bubble(m, i))}
@@ -446,7 +499,6 @@ export default function AIDiscussionModal({
 
               {isThinking && thinkingDot()}
 
-              {/* AI suggestion — click to copy into main textbox */}
               {!isThinking && discussSuggestion && (
                 <div className="flex flex-col gap-2 bg-white border border-indigo-100 rounded-xl p-3">
                   <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-widest">Suggested version</p>
@@ -460,7 +512,6 @@ export default function AIDiscussionModal({
                 </div>
               )}
 
-              {/* Reply input */}
               {!isThinking && (
                 <div className="flex gap-2">
                   <textarea
