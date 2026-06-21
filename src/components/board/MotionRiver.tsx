@@ -388,7 +388,7 @@ export default function MotionRiver({
         </div>
 
         {/* Sidebar — reference material, clearly subordinate */}
-        <div className="w-52 shrink-0 flex flex-col gap-4 sticky top-4">
+        <div className="w-52 shrink-0 flex flex-col gap-4 sticky top-4 max-h-[calc(100vh-200px)] overflow-y-auto pb-4">
           {features.feature_explain_post && (
             <WhatDoesItMeanCard
               arg={explainArg}
