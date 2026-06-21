@@ -208,12 +208,23 @@ export default function SessionDetail() {
             </button>
           </div>
 
-          <button
-            onClick={toggleActive}
-            className="text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 transition-colors"
-          >
-            {session.is_active ? t.deactivate : t.activate}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={toggleActive}
+              className="text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              {session.is_active ? t.deactivate : t.activate}
+            </button>
+            <Link
+              href={`/teacher/${session.id}/debate`}
+              className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <polygon points="5,3 19,12 5,21"/>
+              </svg>
+              Generate Model Debate
+            </Link>
+          </div>
         </div>
 
         {/* Motions */}
