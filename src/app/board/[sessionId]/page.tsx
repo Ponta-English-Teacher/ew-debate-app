@@ -6,6 +6,7 @@ import { getStudent } from '@/lib/student';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { i18n } from '@/lib/i18n';
 import type { Session, Motion, Argument, Student, ResponseType } from '@/types';
+import { mergeSettings, DEFAULT_SETTINGS } from '@/lib/sessionSettings';
 import MotionRiver from '@/components/board/MotionRiver';
 import type { FormState } from '@/components/board/MotionRiver';
 
@@ -200,6 +201,7 @@ export default function BoardPage() {
           onFormChange={setForm}
           onSubmitted={handleSubmitted}
           onVoteChange={handleVoteChange}
+          features={session ? mergeSettings(session.settings) : DEFAULT_SETTINGS}
         />
       </div>
     </div>

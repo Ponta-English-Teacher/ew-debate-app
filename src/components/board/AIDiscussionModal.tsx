@@ -18,6 +18,11 @@ interface Props {
   sessionId: string;
   motionId: string;
   studentId: string;
+  features?: {
+    howToSay:      boolean;
+    editEnglish:   boolean;
+    talkItThrough: boolean;
+  };
   onSubmitted: (arg: Argument) => void;
   onCancel: () => void;
 }
@@ -47,9 +52,15 @@ export default function AIDiscussionModal({
   sessionId,
   motionId,
   studentId,
+  features,
   onSubmitted,
   onCancel,
 }: Props) {
+  const enabledHelpers = [
+    { id: 'express' as const, label: 'How to say it',   needsDraft: true,  enabled: features?.howToSay     ?? true },
+    { id: 'check'   as const, label: 'Edit English',    needsDraft: true,  enabled: features?.editEnglish   ?? true },
+    { id: 'discuss' as const, label: 'Talk it through', needsDraft: false, enabled: features?.talkItThrough ?? true },
+  ].filter(h => h.enabled);
   // ── Main textbox ───────────────────────────────────────────────────────────
   const [draft, setDraft] = useState('');
 
@@ -120,7 +131,7 @@ export default function AIDiscussionModal({
     setExpressMessages(msgs);
     const data = await callAI({
       messages: msgs, motionText, parentContent, mode,
-      selectedLabel,
+      selectedLabel, sessionId,
       helpMode: 'express',
     });
     if (!data) return;
@@ -140,7 +151,7 @@ export default function AIDiscussionModal({
     setExpressReply('');
     const data = await callAI({
       messages: updated, motionText, parentContent, mode,
-      selectedLabel,
+      selectedLabel, sessionId,
       helpMode: 'express',
     });
     if (!data) return;
@@ -168,7 +179,7 @@ export default function AIDiscussionModal({
     const data = await callAI({
       messages: [{ role: 'user', content: text }],
       motionText, parentContent, mode,
-      selectedLabel,
+      selectedLabel, sessionId,
       helpMode: 'check',
     });
     if (!data) return;
@@ -206,7 +217,7 @@ export default function AIDiscussionModal({
       messages: msgs,
       motionText, parentContent, mode,
       threadChain: threadChain ?? null,
-      selectedLabel,
+      selectedLabel, sessionId,
       helpMode: 'discuss',
       currentDraft: currentDraft ?? null,
     });
@@ -380,41 +391,39 @@ export default function AIDiscussionModal({
           </button>
 
           {/* ── Helper selector ─────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-slate-100" />
-              <span className="text-[10px] text-slate-400 uppercase tracking-widest">or get help</span>
-              <div className="flex-1 h-px bg-slate-100" />
+          {enabledHelpers.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-slate-100" />
+                <span className="text-[10px] text-slate-400 uppercase tracking-widest">or get help</span>
+                <div className="flex-1 h-px bg-slate-100" />
+              </div>
+              <div className={`grid gap-2 ${enabledHelpers.length === 1 ? 'grid-cols-1' : enabledHelpers.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                {enabledHelpers.map(({ id, label, needsDraft }) => (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      if (helper === id) { setHelper(null); return; }
+                      if (id === 'express') activateExpress();
+                      else if (id === 'check') activateCheck();
+                      else activateDiscuss();
+                    }}
+                    disabled={!canHelp || (needsDraft && !draft.trim()) || (isThinking && helper !== id)}
+                    className={`text-xs font-medium border rounded-lg px-2 py-2.5 transition-colors disabled:opacity-40 ${
+                      helper === id
+                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                        : 'text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {!canHelp && (
+                <p className="text-[11px] text-slate-400 text-center">Select a contribution type to unlock helpers</p>
+              )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { id: 'express' as const, label: 'How to say it',    needsDraft: true  },
-                { id: 'check'   as const, label: 'Edit English',     needsDraft: true  },
-                { id: 'discuss' as const, label: 'Talk it through',  needsDraft: false },
-              ]).map(({ id, label, needsDraft }) => (
-                <button
-                  key={id}
-                  onClick={() => {
-                    if (helper === id) { setHelper(null); return; }
-                    if (id === 'express') activateExpress();
-                    else if (id === 'check') activateCheck();
-                    else activateDiscuss();
-                  }}
-                  disabled={!canHelp || (needsDraft && !draft.trim()) || (isThinking && helper !== id)}
-                  className={`text-xs font-medium border rounded-lg px-2 py-2.5 transition-colors disabled:opacity-40 ${
-                    helper === id
-                      ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
-                      : 'text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {!canHelp && (
-              <p className="text-[11px] text-slate-400 text-center">Select a contribution type to unlock helpers</p>
-            )}
-          </div>
+          )}
 
           {/* ── EXPRESS PANEL (How to say it) ───────────────────────────────── */}
           {helper === 'express' && (

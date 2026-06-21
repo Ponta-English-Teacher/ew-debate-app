@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { createServerClient } from '@/lib/supabase/server';
+import { mergeSettings } from '@/lib/sessionSettings';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -14,7 +16,26 @@ export async function POST(req: NextRequest) {
     currentDraft,
     threadChain,    // string[] | undefined — ancestor posts for reply context (discuss only)
     selectedLabel,  // 'PRO' | 'CON' | 'QUESTION' | 'OTHER' | undefined — student-selected type (authoritative)
+    sessionId,      // string | undefined — used for feature flag enforcement
   } = await req.json();
+
+  // Feature flag enforcement — only runs when sessionId and helpMode are present
+  if (sessionId && helpMode) {
+    const db = createServerClient();
+    const { data: sess } = await db
+      .from('ewd_sessions')
+      .select('settings')
+      .eq('id', sessionId)
+      .single();
+    const settings = mergeSettings(sess?.settings);
+    const featureKey =
+      helpMode === 'check'   ? 'feature_edit_english' :
+      helpMode === 'express' ? 'feature_how_to_say' :
+      helpMode === 'discuss' ? 'feature_talk_it_through' : null;
+    if (featureKey && !settings[featureKey as keyof typeof settings]) {
+      return NextResponse.json({ error: 'Feature not enabled' }, { status: 403 });
+    }
+  }
 
   const systemPrompt =
     helpMode === 'check'   ? buildCheckPrompt(motionText, parentContent, mode, selectedLabel ?? undefined) :

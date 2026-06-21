@@ -5,6 +5,9 @@ export type Lang = 'en';
 
 // ── Sessions ────────────────────────────────────────────────────────────────
 
+import type { SessionSettings } from '@/lib/sessionSettings';
+export type { SessionSettings };
+
 export interface Session {
   id: string;
   topic: string;
@@ -13,6 +16,7 @@ export interface Session {
   created_at: string;
   // Populated by GET /api/sessions list endpoint
   motion_count?: number;
+  settings?: SessionSettings | null;
 }
 
 // ── Motions ─────────────────────────────────────────────────────────────────

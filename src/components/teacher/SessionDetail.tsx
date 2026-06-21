@@ -4,7 +4,16 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import type { Session, Motion } from '@/types';
+import { type SessionSettings, DEFAULT_SETTINGS, mergeSettings } from '@/lib/sessionSettings';
 import { i18n } from '@/lib/i18n';
+
+const AI_FEATURE_DEFS: Array<{ key: keyof SessionSettings; label: string; desc: string }> = [
+  { key: 'feature_how_to_say',      label: 'How to say it',      desc: 'Helps students translate or express their idea in English.' },
+  { key: 'feature_edit_english',    label: 'Edit English',       desc: 'Checks and corrects student grammar without changing their argument.' },
+  { key: 'feature_explain_post',    label: 'What does it mean?', desc: 'Explains a classmate\'s post in simple English. Default: OFF.' },
+  { key: 'feature_talk_it_through', label: 'Talk it through',    desc: 'Helps students develop their ideas through guided dialogue.' },
+  { key: 'feature_model_debate',    label: 'Model Debate',       desc: 'Shows the published model debate on the student board.' },
+];
 
 export default function SessionDetail() {
   const params = useParams();
@@ -20,6 +29,7 @@ export default function SessionDetail() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState('');
 
+  const [aiSettings,     setAiSettings]     = useState<SessionSettings>(DEFAULT_SETTINGS);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -40,12 +50,26 @@ export default function SessionDetail() {
       fetch(`/api/motions?session_id=${sessionId}`).then(r => r.json()),
     ])
       .then(([s, m]) => {
-        if (s) setSession(s as Session);
+        if (s) {
+          setSession(s as Session);
+          setAiSettings(mergeSettings((s as Session).settings));
+        }
         if (Array.isArray(m)) setMotions(m as Motion[]);
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [sessionId]);
+
+  async function updateAiSetting(key: keyof SessionSettings, value: boolean) {
+    if (!session) return;
+    const newSettings = { ...aiSettings, [key]: value };
+    setAiSettings(newSettings); // optimistic update
+    await fetch(`/api/sessions/${session.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: newSettings }),
+    });
+  }
 
   async function toggleActive() {
     if (!session) return;
@@ -224,6 +248,34 @@ export default function SessionDetail() {
               </svg>
               Generate Model Debate
             </Link>
+          </div>
+        </div>
+
+        {/* AI Settings */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-5">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1">
+            AI Features
+          </h2>
+          <p className="text-xs text-slate-400 mb-4">
+            Control which AI helpers are available to students.
+          </p>
+          <div className="flex flex-col gap-3">
+            {AI_FEATURE_DEFS.map(({ key, label, desc }) => (
+              <label key={key} className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={aiSettings[key]}
+                  onChange={e => updateAiSetting(key, e.target.checked)}
+                  className="mt-0.5 accent-indigo-600 w-4 h-4 shrink-0 cursor-pointer"
+                />
+                <div>
+                  <p className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">
+                    {label}
+                  </p>
+                  <p className="text-xs text-slate-400 leading-snug">{desc}</p>
+                </div>
+              </label>
+            ))}
           </div>
         </div>
 

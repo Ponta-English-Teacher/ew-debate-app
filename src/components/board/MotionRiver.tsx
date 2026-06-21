@@ -3,9 +3,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import type { Motion, Argument } from '@/types';
+import { type SessionSettings, DEFAULT_SETTINGS } from '@/lib/sessionSettings';
 import { getLabel, LABEL_STYLE, type DebateLabel } from '@/lib/debateLabels';
 import ArgumentCluster from './ArgumentCluster';
 import AIDiscussionModal from './AIDiscussionModal';
+import WhatDoesItMeanCard from './WhatDoesItMeanCard';
 
 // ── Types (exported — used by page.tsx and ArgumentCluster) ──────────────────
 
@@ -68,33 +70,6 @@ function buildClusters(args: Argument[], motionId: string): Cluster[] {
 }
 
 // ── Sidebar cards ─────────────────────────────────────────────────────────────
-
-function WhatDoesItMeanCard({ arg }: { arg: Argument | undefined }) {
-  if (arg) {
-    return (
-      <div className="py-0.5">
-        <h3 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">What does it mean?</h3>
-        <p className="text-[11px] text-slate-500 italic leading-relaxed line-clamp-4 mb-1.5">
-          "{arg.content}"
-        </p>
-        <p className="text-[11px] text-slate-400">AI explanation coming soon.</p>
-      </div>
-    );
-  }
-  return (
-    <div className="py-0.5">
-      <h3 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">What does it mean?</h3>
-      <div className="flex gap-2.5">
-        <span className="text-base shrink-0 mt-0.5">💡</span>
-        <div>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Click the button on any post to see a simple explanation of its meaning, key points, and useful vocabulary.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function HowToParticipateCard() {
   const steps = [
@@ -174,6 +149,7 @@ interface Props {
   onFormChange: (state: FormState) => void;
   onSubmitted: (arg: Argument) => void;
   onVoteChange: (argumentId: string, voted: boolean) => void;
+  features?: SessionSettings;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -187,10 +163,11 @@ export default function MotionRiver({
   onFormChange,
   onSubmitted,
   onVoteChange,
+  features = DEFAULT_SETTINGS,
 }: Props) {
-  const [selectedMotionId,  setSelectedMotionId]  = useState(motions[0]?.id ?? '');
-  const [filter,            setFilter]            = useState<FilterKey>('all');
-  const [explainId,         setExplainId]         = useState<string | null>(null);
+  const [selectedMotionId,   setSelectedMotionId]   = useState(motions[0]?.id ?? '');
+  const [filter,             setFilter]             = useState<FilterKey>('all');
+  const [explainId,          setExplainId]          = useState<string | null>(null);
   const [hasPublishedDebate, setHasPublishedDebate] = useState(false);
 
   // Check whether a published debate exists for the selected motion
@@ -233,7 +210,8 @@ export default function MotionRiver({
     [argList, selectedMotion?.id],
   );
 
-  const explainArg = explainId ? argList.find(a => a.id === explainId) : undefined;
+  const explainArg    = explainId ? argList.find(a => a.id === explainId) : undefined;
+  const explainParent = explainArg?.parent_id ? argList.find(a => a.id === explainArg.parent_id) : undefined;
 
   const isModalOpen =
     (form.kind === 'modal-claim' || form.kind === 'modal-response') &&
@@ -269,7 +247,7 @@ export default function MotionRiver({
             <p className="text-sm text-slate-500">
               Read other students' opinions and contribute to the discussion respectfully.
             </p>
-            {hasPublishedDebate && (
+            {hasPublishedDebate && features.feature_model_debate && (
               <Link
                 href={`/board/${sessionId}/debate/${selectedMotion.id}`}
                 className="inline-flex items-center gap-1.5 mt-3 text-sm font-semibold text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3 py-1.5 transition-colors"
@@ -392,7 +370,7 @@ export default function MotionRiver({
                 onFormChange={onFormChange}
                 onSubmitted={onSubmitted}
                 onVoteChange={onVoteChange}
-                onExplain={setExplainId}
+                onExplain={features.feature_explain_post ? setExplainId : undefined}
               />
             ))
           )}
@@ -410,8 +388,15 @@ export default function MotionRiver({
         </div>
 
         {/* Sidebar — reference material, clearly subordinate */}
-        <div className="w-40 shrink-0 flex flex-col gap-4 sticky top-4">
-          <WhatDoesItMeanCard arg={explainArg} />
+        <div className="w-52 shrink-0 flex flex-col gap-4 sticky top-4">
+          {features.feature_explain_post && (
+            <WhatDoesItMeanCard
+              arg={explainArg}
+              parentContent={explainParent?.content}
+              motionText={selectedMotion.motion_text}
+              sessionId={sessionId}
+            />
+          )}
           <HowToParticipateCard />
           <LegendCard />
         </div>
@@ -428,6 +413,11 @@ export default function MotionRiver({
           sessionId={sessionId}
           motionId={selectedMotion.id}
           studentId={studentId}
+          features={{
+            howToSay:      features.feature_how_to_say,
+            editEnglish:   features.feature_edit_english,
+            talkItThrough: features.feature_talk_it_through,
+          }}
           onSubmitted={(arg) => { onFormChange({ kind: 'closed' }); onSubmitted(arg); }}
           onCancel={() => onFormChange({ kind: 'closed' })}
         />

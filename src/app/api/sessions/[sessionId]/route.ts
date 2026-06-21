@@ -29,14 +29,19 @@ export async function PATCH(
   const { sessionId } = await params;
   const body = await req.json();
 
-  if (typeof body.is_active !== 'boolean') {
-    return NextResponse.json({ error: 'is_active (boolean) required' }, { status: 400 });
+  const updates: Record<string, unknown> = {};
+  if (typeof body.is_active === 'boolean') updates.is_active = body.is_active;
+  if (body.settings !== undefined && typeof body.settings === 'object' && body.settings !== null) {
+    updates.settings = body.settings;
+  }
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   }
 
   const db = createServerClient();
   const { data, error } = await db
     .from('ewd_sessions')
-    .update({ is_active: body.is_active })
+    .update(updates)
     .eq('id', sessionId)
     .select()
     .single();
