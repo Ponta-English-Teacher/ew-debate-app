@@ -4,27 +4,30 @@ import { useState, useEffect } from 'react';
 import type { Argument } from '@/types';
 
 interface ExplanationResult {
-  simpleExplanation: string;
-  mainPoint:         string;
-  keyPhrases:        string[];
+  simpleExplanation:   string;
+  mainPoint:           string;
+  keyPhrases:          string[];
+  japaneseExplanation: string;
 }
 
 interface Props {
-  arg?:          Argument;
+  arg?:           Argument;
   parentContent?: string;
-  motionText:    string;
-  sessionId:     string;
+  motionText:     string;
+  sessionId:      string;
 }
 
 export default function WhatDoesItMeanCard({ arg, parentContent, motionText, sessionId }: Props) {
-  const [result,  setResult]  = useState<ExplanationResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState('');
+  const [result,       setResult]       = useState<ExplanationResult | null>(null);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState('');
+  const [showJapanese, setShowJapanese] = useState(false);
 
   useEffect(() => {
-    if (!arg) { setResult(null); setError(''); return; }
+    if (!arg) { setResult(null); setError(''); setShowJapanese(false); return; }
     setResult(null);
     setError('');
+    setShowJapanese(false);
     setLoading(true);
     fetch('/api/ai/explain-post', {
       method: 'POST',
@@ -82,13 +85,16 @@ export default function WhatDoesItMeanCard({ arg, parentContent, motionText, ses
 
       {!loading && !error && result && (
         <div className="flex flex-col gap-2">
+          {/* English explanation — always visible */}
           <p className="text-[11px] text-slate-700 leading-relaxed">{result.simpleExplanation}</p>
+
           {result.mainPoint && (
             <div className="bg-slate-50 rounded px-2 py-1.5 border border-slate-100">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Main point</p>
               <p className="text-[11px] text-slate-600 leading-snug">{result.mainPoint}</p>
             </div>
           )}
+
           {result.keyPhrases.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {result.keyPhrases.map((phrase, i) => (
@@ -96,6 +102,32 @@ export default function WhatDoesItMeanCard({ arg, parentContent, motionText, ses
                   {phrase}
                 </span>
               ))}
+            </div>
+          )}
+
+          {/* Japanese toggle — only when translation is available */}
+          {result.japaneseExplanation && !showJapanese && (
+            <button
+              onClick={() => setShowJapanese(true)}
+              className="self-start text-[11px] text-slate-400 hover:text-indigo-600 border border-slate-200 hover:border-indigo-300 rounded px-2 py-1 transition-colors mt-0.5"
+            >
+              日本語で見る
+            </button>
+          )}
+
+          {/* Japanese explanation — revealed on click */}
+          {result.japaneseExplanation && showJapanese && (
+            <div className="bg-amber-50 border border-amber-100 rounded px-2 py-1.5">
+              <div className="flex items-center justify-between mb-0.5">
+                <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">日本語</p>
+                <button
+                  onClick={() => setShowJapanese(false)}
+                  className="text-[10px] text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  非表示
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-700 leading-relaxed">{result.japaneseExplanation}</p>
             </div>
           )}
         </div>

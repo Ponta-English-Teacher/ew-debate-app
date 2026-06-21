@@ -53,13 +53,15 @@ Return ONLY valid JSON — no other text, no code fences:
 {
   "simpleExplanation": "A clear 1-2 sentence explanation of what the writer is saying, in simple English.",
   "mainPoint": "The core argument or question in one short sentence.",
-  "keyPhrases": ["phrase 1", "phrase 2"]
+  "keyPhrases": ["phrase 1", "phrase 2"],
+  "japaneseExplanation": "simpleExplanation を自然な日本語に訳した1〜2文。高校生向けのわかりやすい言葉で書いてください。"
 }
 
 Rules:
 - simpleExplanation: 1-2 sentences. Clear. Use vocabulary suitable for high school students.
 - mainPoint: 1 sentence maximum.
 - keyPhrases: 2-4 short phrases or words from the post that carry the core meaning. Return [] if none are notable.
+- japaneseExplanation: A natural Japanese translation of simpleExplanation. 1-2 sentences. Written for high school students. Do NOT add interpretation beyond what simpleExplanation says.
 - Do NOT change the writer's position.
 - Do NOT say whether you agree or disagree.
 - Do NOT evaluate the quality of the argument.`;
@@ -69,15 +71,16 @@ Rules:
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
-      max_tokens: 300,
+      max_tokens: 400,
     });
     const raw = completion.choices[0].message.content ?? '';
     const stripped = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
     const parsed = JSON.parse(stripped);
     return NextResponse.json({
-      simpleExplanation: parsed.simpleExplanation ?? '',
-      mainPoint: parsed.mainPoint ?? '',
-      keyPhrases: Array.isArray(parsed.keyPhrases) ? parsed.keyPhrases : [],
+      simpleExplanation:   parsed.simpleExplanation   ?? '',
+      mainPoint:           parsed.mainPoint           ?? '',
+      keyPhrases:          Array.isArray(parsed.keyPhrases) ? parsed.keyPhrases : [],
+      japaneseExplanation: parsed.japaneseExplanation ?? '',
     });
   } catch {
     return NextResponse.json({ error: 'AI unavailable' }, { status: 502 });
