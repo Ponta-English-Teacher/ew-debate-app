@@ -15,6 +15,7 @@ interface Props {
   onSubmitted: (arg: Argument) => void;
   onVoteChange: (argumentId: string, voted: boolean) => void;
   onExplain?: (id: string) => void;
+  onDeleted?: (argumentId: string) => void;
 }
 
 export default function ArgumentCluster({
@@ -26,6 +27,7 @@ export default function ArgumentCluster({
   onFormChange,
   onVoteChange,
   onExplain,
+  onDeleted,
 }: Props) {
   const isAnyFormOpen = form.kind !== 'closed';
 
@@ -58,6 +60,7 @@ export default function ArgumentCluster({
                     : undefined
                 }
                 onExplain={onExplain}
+                onDeleted={onDeleted}
               />
               {renderThread(response.id, depth + 1)}
             </div>
@@ -80,6 +83,7 @@ export default function ArgumentCluster({
             : undefined
         }
         onExplain={onExplain}
+        onDeleted={onDeleted}
       />
       {renderThread(claim.id, 0)}
     </div>

@@ -149,6 +149,7 @@ interface Props {
   onFormChange: (state: FormState) => void;
   onSubmitted: (arg: Argument) => void;
   onVoteChange: (argumentId: string, voted: boolean) => void;
+  onDeleted?: (argumentId: string) => void;
   features?: SessionSettings;
 }
 
@@ -163,6 +164,7 @@ export default function MotionRiver({
   onFormChange,
   onSubmitted,
   onVoteChange,
+  onDeleted,
   features = DEFAULT_SETTINGS,
 }: Props) {
   const [selectedMotionId,   setSelectedMotionId]   = useState(motions[0]?.id ?? '');
@@ -371,6 +373,7 @@ export default function MotionRiver({
                 onSubmitted={onSubmitted}
                 onVoteChange={onVoteChange}
                 onExplain={features.feature_explain_post ? setExplainId : undefined}
+                onDeleted={onDeleted}
               />
             ))
           )}

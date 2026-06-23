@@ -93,6 +93,14 @@ export default function BoardPage() {
       )
       .on(
         'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'ewd_arguments' },
+        (payload) => {
+          const old = payload.old as { id: string };
+          setArgList(prev => prev.filter(a => a.id !== old.id));
+        },
+      )
+      .on(
+        'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'ewd_votes' },
         (payload) => {
           const vote = payload.new as { id: string; argument_id: string; student_id: string };
@@ -143,6 +151,10 @@ export default function BoardPage() {
         ? { ...a, vote_count: voted ? a.vote_count + 1 : a.vote_count - 1, voted_by_me: voted }
         : a
     ));
+  }
+
+  function handleDeleted(argumentId: string) {
+    setArgList(prev => prev.filter(a => a.id !== argumentId));
   }
 
   function handleSubmitted(arg: Argument) {
@@ -201,6 +213,7 @@ export default function BoardPage() {
           onFormChange={setForm}
           onSubmitted={handleSubmitted}
           onVoteChange={handleVoteChange}
+          onDeleted={handleDeleted}
           features={session ? mergeSettings(session.settings) : DEFAULT_SETTINGS}
         />
       </div>
