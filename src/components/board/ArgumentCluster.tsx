@@ -9,6 +9,7 @@ interface Props {
   responses: Argument[];
   sessionId: string;
   motionId: string;
+  motionText: string;
   studentId: string;
   form: FormState;
   onFormChange: (state: FormState) => void;
@@ -22,6 +23,7 @@ export default function ArgumentCluster({
   claim,
   responses,
   motionId,
+  motionText,
   studentId,
   form,
   onFormChange,
@@ -52,6 +54,7 @@ export default function ArgumentCluster({
               <ArgumentNode
                 argument={response}
                 studentId={studentId}
+                motionText={motionText}
                 replyCount={directChildCount > 0 ? directChildCount : undefined}
                 onVoteChange={onVoteChange}
                 onBuildOn={
@@ -75,6 +78,7 @@ export default function ArgumentCluster({
       <ArgumentNode
         argument={claim}
         studentId={studentId}
+        motionText={motionText}
         replyCount={responses.length > 0 ? responses.length : undefined}
         onVoteChange={onVoteChange}
         onBuildOn={

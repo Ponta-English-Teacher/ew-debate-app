@@ -78,6 +78,7 @@ export default function MotionLane({
             responses={responses}
             sessionId={sessionId}
             motionId={motion.id}
+            motionText={motion.motion_text}
             studentId={studentId}
             form={form}
             onFormChange={onFormChange}

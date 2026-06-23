@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Argument } from '@/types';
 import { getLabel, LABEL_STYLE } from '@/lib/debateLabels';
 import ReactionButton from './ReactionButton';
+import ReviewImproveModal from './ReviewImproveModal';
 
 // ── Avatar helpers ────────────────────────────────────────────────────────────
 
@@ -74,11 +75,21 @@ function TrashIcon() {
   );
 }
 
+function SparkleIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l1.6 4.8L18 9l-4.4 1.7L12 15l-1.6-4.3L6 9l4.4-1.2z" />
+      <path d="M19 13l.8 2.2L22 16l-2.2.8L19 19l-.8-2.2L16 16l2.2-.8z" />
+    </svg>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
   argument: Argument;
   studentId: string;
+  motionText?: string;
   replyCount?: number;
   onVoteChange: (argumentId: string, voted: boolean) => void;
   onBuildOn?: (arg: Argument) => void;
@@ -89,6 +100,7 @@ interface Props {
 export default function ArgumentNode({
   argument,
   studentId,
+  motionText,
   replyCount,
   onVoteChange,
   onBuildOn,
@@ -102,6 +114,7 @@ export default function ArgumentNode({
 
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   async function handleCopy() {
     try {
@@ -203,6 +216,16 @@ export default function ArgumentNode({
 
         {isOwner && (
           <button
+            onClick={() => setReviewOpen(true)}
+            className="flex items-center gap-1 text-[11px] text-violet-500 hover:text-violet-700 transition-colors whitespace-nowrap"
+          >
+            <SparkleIcon />
+            Review &amp; Improve
+          </button>
+        )}
+
+        {isOwner && (
+          <button
             onClick={handleDelete}
             disabled={deleting}
             className="flex items-center gap-1 text-[11px] text-rose-400 hover:text-rose-600 disabled:opacity-40 transition-colors whitespace-nowrap"
@@ -222,6 +245,16 @@ export default function ArgumentNode({
           </button>
         )}
       </div>
+
+      {reviewOpen && (
+        <ReviewImproveModal
+          postContent={argument.content}
+          motionText={motionText ?? ''}
+          parentContent={argument.parent?.content ?? null}
+          label={label}
+          onClose={() => setReviewOpen(false)}
+        />
+      )}
     </div>
   );
 }

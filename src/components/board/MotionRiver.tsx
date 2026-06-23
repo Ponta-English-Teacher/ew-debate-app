@@ -367,6 +367,7 @@ export default function MotionRiver({
                 responses={cluster.responses}
                 sessionId={sessionId}
                 motionId={selectedMotion.id}
+                motionText={selectedMotion.motion_text}
                 studentId={studentId}
                 form={form}
                 onFormChange={onFormChange}
