@@ -31,11 +31,14 @@ export interface Motion {
 
 // ── Students ─────────────────────────────────────────────────────────────────
 
+export type Team = 'pro' | 'con';
+
 export interface Student {
   id: string;
   session_id: string;
   name: string;
   student_id: string | null; // school-issued ID, optional
+  team?: Team | null;
   created_at: string;
 }
 
@@ -62,9 +65,11 @@ export interface Argument {
   is_flagged: boolean;
   created_at: string;
   // Populated by ewd_arguments_with_votes view
-  vote_count: number;
-  // Set by the API based on the requesting student's vote record
-  voted_by_me?: boolean;
+  strong_count: number;
+  interesting_count: number;
+  // Set by the API based on the requesting student's own reactions
+  strong_by_me?: boolean;
+  interesting_by_me?: boolean;
   // Parent card excerpt — populated by API when parent_id is non-null
   parent?: Pick<Argument, 'id' | 'content' | 'response_type'> | null;
   // Joined from ewd_students by the GET /api/arguments endpoint
@@ -73,9 +78,12 @@ export interface Argument {
 
 // ── Votes ────────────────────────────────────────────────────────────────────
 
+export type ReactionType = 'strong' | 'interesting';
+
 export interface Vote {
   id: string;
   argument_id: string;
   student_id: string;
+  reaction_type: ReactionType;
   created_at: string;
 }

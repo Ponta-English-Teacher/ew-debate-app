@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Argument } from '@/types';
+import type { Argument, ReactionType } from '@/types';
 import { getLabel, LABEL_STYLE } from '@/lib/debateLabels';
 import ReactionButton from './ReactionButton';
 import ReviewImproveModal from './ReviewImproveModal';
@@ -91,7 +91,7 @@ interface Props {
   studentId: string;
   motionText?: string;
   replyCount?: number;
-  onVoteChange: (argumentId: string, voted: boolean) => void;
+  onReactionChange: (argumentId: string, reactionType: ReactionType, active: boolean) => void;
   onBuildOn?: (arg: Argument) => void;
   onExplain?: (id: string) => void;
   onDeleted?: (argumentId: string) => void;
@@ -102,7 +102,7 @@ export default function ArgumentNode({
   studentId,
   motionText,
   replyCount,
-  onVoteChange,
+  onReactionChange,
   onBuildOn,
   onExplain,
   onDeleted,
@@ -183,7 +183,7 @@ export default function ArgumentNode({
         {argument.content}
       </p>
 
-      {/* Footer — reply is primary action, agree + explain are secondary */}
+      {/* Footer — reply is primary action, reactions + explain are secondary */}
       <div className="flex items-center gap-3 px-3 pb-2 pt-1.5 border-t border-slate-100">
         {onBuildOn && (
           <button
@@ -195,15 +195,27 @@ export default function ArgumentNode({
           </button>
         )}
 
-        <div className="flex items-center gap-1 text-[11px] text-slate-400 ml-2">
+        <div className="flex items-center gap-1.5 ml-2">
           <ReactionButton
             argumentId={argument.id}
-            voteCount={argument.vote_count}
-            votedByMe={argument.voted_by_me ?? false}
+            reactionType="strong"
+            icon="💪"
+            label="Strong Argument"
+            count={argument.strong_count}
+            active={argument.strong_by_me ?? false}
             studentId={studentId}
-            onVoteChange={onVoteChange}
+            onReactionChange={onReactionChange}
           />
-          <span>Agree</span>
+          <ReactionButton
+            argumentId={argument.id}
+            reactionType="interesting"
+            icon="💡"
+            label="Interesting Point"
+            count={argument.interesting_count}
+            active={argument.interesting_by_me ?? false}
+            studentId={studentId}
+            onReactionChange={onReactionChange}
+          />
         </div>
 
         <button

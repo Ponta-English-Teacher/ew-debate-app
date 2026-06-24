@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import type { Motion, Argument } from '@/types';
+import type { Motion, Argument, ReactionType } from '@/types';
 import { type SessionSettings, DEFAULT_SETTINGS } from '@/lib/sessionSettings';
 import { getLabel, LABEL_STYLE, type DebateLabel } from '@/lib/debateLabels';
 import ArgumentCluster from './ArgumentCluster';
@@ -148,7 +148,7 @@ interface Props {
   form: FormState;
   onFormChange: (state: FormState) => void;
   onSubmitted: (arg: Argument) => void;
-  onVoteChange: (argumentId: string, voted: boolean) => void;
+  onReactionChange: (argumentId: string, reactionType: ReactionType, active: boolean) => void;
   onDeleted?: (argumentId: string) => void;
   features?: SessionSettings;
 }
@@ -163,7 +163,7 @@ export default function MotionRiver({
   form,
   onFormChange,
   onSubmitted,
-  onVoteChange,
+  onReactionChange,
   onDeleted,
   features = DEFAULT_SETTINGS,
 }: Props) {
@@ -372,7 +372,7 @@ export default function MotionRiver({
                 form={form}
                 onFormChange={onFormChange}
                 onSubmitted={onSubmitted}
-                onVoteChange={onVoteChange}
+                onReactionChange={onReactionChange}
                 onExplain={features.feature_explain_post ? setExplainId : undefined}
                 onDeleted={onDeleted}
               />

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { getStudent } from '@/lib/student';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { i18n } from '@/lib/i18n';
-import type { Session, Motion, Argument, Student, ResponseType } from '@/types';
+import type { Session, Motion, Argument, Student, ResponseType, ReactionType } from '@/types';
 import { mergeSettings, DEFAULT_SETTINGS } from '@/lib/sessionSettings';
 import MotionRiver from '@/components/board/MotionRiver';
 import type { FormState } from '@/components/board/MotionRiver';
@@ -24,7 +24,7 @@ export default function BoardPage() {
 
   // Refs for stable access inside realtime closures
   const argListRef = useRef<Argument[]>([]);
-  const voteMapRef = useRef(new Map<string, { argumentId: string; studentId: string }>());
+  const voteMapRef = useRef(new Map<string, { argumentId: string; studentId: string; reactionType: ReactionType }>());
 
   // Keep argListRef in sync with state
   useEffect(() => { argListRef.current = argList; }, [argList]);
@@ -83,8 +83,10 @@ export default function BoardPage() {
               word_count: raw.word_count as number,
               is_flagged: raw.is_flagged as boolean,
               created_at: raw.created_at as string,
-              vote_count: 0,
-              voted_by_me: false,
+              strong_count: 0,
+              interesting_count: 0,
+              strong_by_me: false,
+              interesting_by_me: false,
               parent: parentArg ? { id: parentArg.id, content: parentArg.content, response_type: parentArg.response_type } : null,
             };
             return [...prev, arg];
@@ -103,19 +105,20 @@ export default function BoardPage() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'ewd_votes' },
         (payload) => {
-          const vote = payload.new as { id: string; argument_id: string; student_id: string };
+          const vote = payload.new as { id: string; argument_id: string; student_id: string; reaction_type: ReactionType };
 
-          // Only process votes for arguments in this session
+          // Only process reactions for arguments in this session
           if (!argListRef.current.some(a => a.id === vote.argument_id)) return;
 
           // Track for DELETE lookups (replica identity is DEFAULT — DELETE only has PK)
-          voteMap.set(vote.id, { argumentId: vote.argument_id, studentId: vote.student_id });
+          voteMap.set(vote.id, { argumentId: vote.argument_id, studentId: vote.student_id, reactionType: vote.reaction_type });
 
-          // Skip own votes — already handled optimistically by handleVoteChange
+          // Skip own reactions — already handled optimistically by handleReactionChange
           if (vote.student_id === student.id) return;
 
+          const countField = vote.reaction_type === 'strong' ? 'strong_count' : 'interesting_count';
           setArgList(prev => prev.map(a =>
-            a.id === vote.argument_id ? { ...a, vote_count: a.vote_count + 1 } : a
+            a.id === vote.argument_id ? { ...a, [countField]: a[countField] + 1 } : a
           ));
         },
       )
@@ -123,20 +126,23 @@ export default function BoardPage() {
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'ewd_votes' },
         (payload) => {
-          const old = payload.old as { id: string; argument_id?: string; student_id?: string };
+          const old = payload.old as { id: string; argument_id?: string; student_id?: string; reaction_type?: ReactionType };
 
           // With REPLICA IDENTITY FULL the full row is present; fall back to
           // voteMap for sessions where the migration hasn't been applied yet.
-          const argumentId = old.argument_id ?? voteMap.get(old.id)?.argumentId;
-          const studentId = old.student_id ?? voteMap.get(old.id)?.studentId;
+          const cached = voteMap.get(old.id);
+          const argumentId = old.argument_id ?? cached?.argumentId;
+          const studentId = old.student_id ?? cached?.studentId;
+          const reactionType = old.reaction_type ?? cached?.reactionType;
 
           voteMap.delete(old.id);
 
-          if (!argumentId || !studentId) return; // unknown — ignore
-          if (studentId === student.id) return;   // own unvote, already optimistic
+          if (!argumentId || !studentId || !reactionType) return; // unknown — ignore
+          if (studentId === student.id) return;   // own removal, already optimistic
 
+          const countField = reactionType === 'strong' ? 'strong_count' : 'interesting_count';
           setArgList(prev => prev.map(a =>
-            a.id === argumentId ? { ...a, vote_count: Math.max(0, a.vote_count - 1) } : a
+            a.id === argumentId ? { ...a, [countField]: Math.max(0, a[countField] - 1) } : a
           ));
         },
       )
@@ -145,10 +151,12 @@ export default function BoardPage() {
     return () => { supabase.removeChannel(channel); };
   }, [sessionId, student]);
 
-  function handleVoteChange(argumentId: string, voted: boolean) {
+  function handleReactionChange(argumentId: string, reactionType: ReactionType, active: boolean) {
+    const countField = reactionType === 'strong' ? 'strong_count' : 'interesting_count';
+    const byMeField = reactionType === 'strong' ? 'strong_by_me' : 'interesting_by_me';
     setArgList(prev => prev.map(a =>
       a.id === argumentId
-        ? { ...a, vote_count: voted ? a.vote_count + 1 : a.vote_count - 1, voted_by_me: voted }
+        ? { ...a, [countField]: active ? a[countField] + 1 : a[countField] - 1, [byMeField]: active }
         : a
     ));
   }
@@ -212,7 +220,7 @@ export default function BoardPage() {
           form={form}
           onFormChange={setForm}
           onSubmitted={handleSubmitted}
-          onVoteChange={handleVoteChange}
+          onReactionChange={handleReactionChange}
           onDeleted={handleDeleted}
           features={session ? mergeSettings(session.settings) : DEFAULT_SETTINGS}
         />

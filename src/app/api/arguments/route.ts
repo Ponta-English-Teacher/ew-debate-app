@@ -34,30 +34,35 @@ export async function GET(req: NextRequest) {
   type ArgRow = typeof args[number];
   const argMap = new Map<string, ArgRow>(args.map(a => [a.id, a]));
 
-  // Compute voted_by_me if student_id supplied
-  let votedSet = new Set<string>();
+  // Compute strong_by_me / interesting_by_me if student_id supplied
+  let strongSet = new Set<string>();
+  let interestingSet = new Set<string>();
   if (student_id) {
     const { data: votes } = await db
       .from('ewd_votes')
-      .select('argument_id')
+      .select('argument_id, reaction_type')
       .eq('student_id', student_id)
       .in('argument_id', args.map(a => a.id));
-    votedSet = new Set(votes?.map(v => v.argument_id) ?? []);
+    strongSet = new Set(votes?.filter(v => v.reaction_type === 'strong').map(v => v.argument_id) ?? []);
+    interestingSet = new Set(votes?.filter(v => v.reaction_type === 'interesting').map(v => v.argument_id) ?? []);
   }
 
-  // Join student names for display
+  // Join student names + teams for display
   const { data: students } = await db
     .from('ewd_students')
-    .select('id, name')
+    .select('id, name, team')
     .eq('session_id', session_id);
   const studentNames = new Map<string, string>(students?.map(s => [s.id, s.name]) ?? []);
+  const studentTeams = new Map<string, string | null>(students?.map(s => [s.id, s.team]) ?? []);
 
   const result = args.map(a => {
     const parent = a.parent_id ? argMap.get(a.parent_id) ?? null : null;
     return {
       ...a,
-      voted_by_me: votedSet.has(a.id),
+      strong_by_me: strongSet.has(a.id),
+      interesting_by_me: interestingSet.has(a.id),
       student_name: studentNames.get(a.student_id) ?? null,
+      student_team: studentTeams.get(a.student_id) ?? null,
       parent: parent
         ? { id: parent.id, content: parent.content, response_type: parent.response_type }
         : null,
@@ -69,7 +74,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { session_id, motion_id, parent_id, student_id, response_type, content } = body;
+  const { session_id, motion_id, parent_id, student_id, response_type, content, needs_answer } = body;
 
   if (!session_id || !motion_id || !student_id || !response_type || !content?.trim()) {
     return NextResponse.json(
@@ -96,10 +101,11 @@ export async function POST(req: NextRequest) {
       response_type,
       content: trimmed,
       word_count,
+      needs_answer: needs_answer === true,
     })
     .select()
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ...data, vote_count: 0 }, { status: 201 });
+  return NextResponse.json({ ...data, strong_count: 0, interesting_count: 0 }, { status: 201 });
 }

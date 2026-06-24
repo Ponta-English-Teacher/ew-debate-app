@@ -79,12 +79,15 @@ CREATE TABLE ewd_motions (
 -- student_id is the school-issued alphanumeric ID (optional).
 -- The DB row UUID is stored in the student's browser sessionStorage
 -- so the client can identify them across page loads without login.
+-- team is nullable — students choose Pro/Con at join time; existing
+-- rows from before this feature simply have team = NULL.
 -- =============================================================
 CREATE TABLE ewd_students (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id  UUID        NOT NULL REFERENCES ewd_sessions(id) ON DELETE CASCADE,
   name        TEXT        NOT NULL,
   student_id  TEXT,
+  team        TEXT        CHECK (team IN ('pro', 'con')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -110,6 +113,11 @@ CREATE TABLE ewd_students (
 --
 -- is_flagged is set to true by the teacher via PATCH to mark a
 -- card as "Challenge This". Visible to all students in realtime.
+--
+-- needs_answer is set by the post's author (optional, independent of
+-- response_type) to mean "I want this answered by the other team or
+-- classmates." Whether it counts as answered is derived client-side
+-- from whether the post has any replies — not stored here.
 -- =============================================================
 CREATE TABLE ewd_arguments (
   id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -129,41 +137,52 @@ CREATE TABLE ewd_arguments (
   content        TEXT        NOT NULL,
   word_count     INT         NOT NULL DEFAULT 0,
   is_flagged     BOOLEAN     NOT NULL DEFAULT false,
+  needs_answer   BOOLEAN     NOT NULL DEFAULT false,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 
 -- =============================================================
 -- TABLE: ewd_votes
--- One row per (argument, student) pair.
--- The UNIQUE constraint enforces no double-voting at the DB level.
--- Deleting a row removes the vote (toggle behaviour handled in API).
+-- One row per (argument, student, reaction_type) triple — a student
+-- can give an argument both reactions, but not the same reaction twice.
+--
+-- reaction_type is enforced by a CHECK constraint. Valid values:
+--   strong       — "Strong Argument" (💪): the reasoning/persuasiveness
+--                  is judged strong, independent of the student's own
+--                  stance on the motion.
+--   interesting  — "Interesting Point" (💡): a novel or thought-
+--                  provoking angle, independent of stance or strength.
 -- =============================================================
 CREATE TABLE ewd_votes (
-  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  argument_id  UUID        NOT NULL REFERENCES ewd_arguments(id) ON DELETE CASCADE,
-  student_id   UUID        NOT NULL REFERENCES ewd_students(id)  ON DELETE CASCADE,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (argument_id, student_id)
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  argument_id    UUID        NOT NULL REFERENCES ewd_arguments(id) ON DELETE CASCADE,
+  student_id     UUID        NOT NULL REFERENCES ewd_students(id)  ON DELETE CASCADE,
+  reaction_type  TEXT        NOT NULL CHECK (reaction_type IN ('strong', 'interesting')),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (argument_id, student_id, reaction_type)
 );
 
 
 -- =============================================================
 -- VIEW: ewd_arguments_with_votes
--- Joins ewd_arguments with an aggregated vote count.
+-- Joins ewd_arguments with per-reaction-type counts.
 -- API routes query this view (not the base table) whenever
--- vote counts need to be included in the response.
--- The COALESCE ensures arguments with zero votes return 0, not NULL.
+-- reaction counts need to be included in the response.
+-- The COALESCE ensures arguments with zero reactions return 0, not NULL.
 -- =============================================================
 CREATE OR REPLACE VIEW ewd_arguments_with_votes AS
 SELECT
   a.*,
-  COALESCE(v.vote_count, 0)::INT AS vote_count
+  COALESCE(v.strong_count, 0)::INT      AS strong_count,
+  COALESCE(v.interesting_count, 0)::INT AS interesting_count
 FROM ewd_arguments a
 LEFT JOIN (
-  SELECT   argument_id,
-           COUNT(*) AS vote_count
-  FROM     ewd_votes
+  SELECT
+    argument_id,
+    COUNT(*) FILTER (WHERE reaction_type = 'strong')      AS strong_count,
+    COUNT(*) FILTER (WHERE reaction_type = 'interesting') AS interesting_count
+  FROM ewd_votes
   GROUP BY argument_id
 ) v ON v.argument_id = a.id;
 

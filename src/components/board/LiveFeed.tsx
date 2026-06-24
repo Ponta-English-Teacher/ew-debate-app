@@ -34,7 +34,7 @@ export default function LiveFeed({ arguments: args, onSelect }: Props) {
               <p className="text-xs text-slate-700 leading-relaxed line-clamp-2 font-medium">
                 {arg.content}
               </p>
-              <span className="text-xs text-indigo-500 font-semibold">▲ {arg.vote_count}</span>
+              <span className="text-xs text-indigo-500 font-semibold">💪 {arg.strong_count}</span>
             </button>
           ))
         )}

@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setStudent } from '@/lib/student';
 import { i18n } from '@/lib/i18n';
-import type { Student } from '@/types';
+import type { Student, Team } from '@/types';
+import TeamPicker from './TeamPicker';
 
 export default function StudentJoinForm() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function StudentJoinForm() {
   const [name, setName] = useState('');
   const [studentId, setStudentId] = useState('');
   const [classCode, setClassCode] = useState('');
+  const [team, setTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -25,6 +27,11 @@ export default function StudentJoinForm() {
 
     if (!trimmedName || !trimmedCode) {
       setError(t.required);
+      return;
+    }
+
+    if (!team) {
+      setError(t.teamRequired);
       return;
     }
 
@@ -56,6 +63,7 @@ export default function StudentJoinForm() {
           session_id: session.id,
           name: trimmedName,
           student_id: studentId.trim() || null,
+          team,
         }),
       });
       if (!studentRes.ok) {
@@ -107,6 +115,14 @@ export default function StudentJoinForm() {
           placeholder={t.studentIdPlaceholder}
           className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
         />
+      </div>
+
+      {/* Team */}
+      <div className="mb-4">
+        <label className="block text-xs font-medium text-slate-600 mb-1.5">
+          {t.teamLabel}
+        </label>
+        <TeamPicker value={team} onChange={setTeam} />
       </div>
 
       {/* Class code */}

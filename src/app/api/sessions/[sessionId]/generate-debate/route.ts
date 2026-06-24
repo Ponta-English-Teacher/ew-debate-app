@@ -38,10 +38,11 @@ export async function POST(
 
   const { data: rows, error: argsErr } = await db
     .from('ewd_arguments_with_votes')
-    .select('id, parent_id, response_type, content, vote_count')
+    .select('id, parent_id, response_type, content, strong_count, interesting_count')
     .eq('session_id', sessionId)
     .eq('motion_id', motionId)
-    .order('vote_count', { ascending: false });
+    .order('strong_count', { ascending: false })
+    .order('interesting_count', { ascending: false });
 
   if (argsErr) {
     return NextResponse.json({ error: argsErr.message }, { status: 500 });
@@ -73,12 +74,15 @@ export async function POST(
       ? 'This model debate may be limited because there are not many student posts yet.'
       : undefined;
 
+  const formatReactions = (a: { strong_count: number | null; interesting_count: number | null }) =>
+    `💪${a.strong_count ?? 0} 💡${a.interesting_count ?? 0}`;
+
   const proSection = proArgs.length > 0
-    ? proArgs.map((a, i) => `${i + 1}. [${a.vote_count ?? 0} vote${a.vote_count !== 1 ? 's' : ''}] "${a.content}"`).join('\n')
+    ? proArgs.map((a, i) => `${i + 1}. [${formatReactions(a)}] "${a.content}"`).join('\n')
     : '(No PRO arguments submitted yet)';
 
   const conSection = conArgs.length > 0
-    ? conArgs.map((a, i) => `${i + 1}. [${a.vote_count ?? 0} vote${a.vote_count !== 1 ? 's' : ''}] "${a.content}"`).join('\n')
+    ? conArgs.map((a, i) => `${i + 1}. [${formatReactions(a)}] "${a.content}"`).join('\n')
     : '(No CON arguments submitted yet)';
 
   const questionSection = questions.length > 0
@@ -166,10 +170,15 @@ Motion: "${motionText}"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STUDENT CONTRIBUTIONS — your only source material
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PRO arguments — supporting the motion (highest votes = class judged strongest, listed first):
+Each contribution below is tagged with two classmate reaction counts:
+  💪 = how many classmates judged the argument's reasoning strong, regardless of which side they personally support
+  💡 = how many classmates found it an interesting or novel point
+Arguments are listed highest 💪 first (ties broken by 💡) — this is the class's quality judgement, not a popularity vote on the position.
+
+PRO arguments — supporting the motion (highest 💪 listed first):
 ${proSection}
 
-CON arguments — opposing the motion (highest votes = class judged strongest, listed first):
+CON arguments — opposing the motion (highest 💪 listed first):
 ${conSection}
 ${questionBlock}
 ${replyBlock}
@@ -193,7 +202,7 @@ SECTION 2 — pro_1 — First PRO Speaker
 Open with: "Thank you, Chairperson."
 Organise and express the PRO student arguments above in clear, confident debate language.
 Cover each distinct PRO argument. Write approximately 1–2 sentences per argument.
-Present highest-voted arguments most prominently. Speak in first person.
+Present highest-💪 arguments most prominently. Speak in first person.
 Write only as many sentences as the PRO contributions support — do not add invented points.
 
 SECTION 3 — con_1 — First CON Speaker
@@ -201,7 +210,7 @@ Open with: "Thank you, Chairperson."
 Your first sentence must directly reference a specific claim the PRO speaker made in Section 2:
   Pattern: "The PRO team has argued that [specific PRO claim from Section 2]. However, [challenge drawn from CON student contributions]."
 Then organise and express the CON student arguments. Approximately 1–2 sentences per distinct argument.
-Every challenge must come from the CON contributions above. Present highest-voted arguments most prominently.
+Every challenge must come from the CON contributions above. Present highest-💪 arguments most prominently.
 
 SECTION 4 — pro_rebuttal — PRO Rebuttal
 Open with: "Thank you, Chairperson."

@@ -1,6 +1,6 @@
 'use client';
 
-import type { Argument } from '@/types';
+import type { Argument, ReactionType } from '@/types';
 import type { FormState } from './MotionRiver';
 import ArgumentNode from './ArgumentNode';
 
@@ -14,7 +14,7 @@ interface Props {
   form: FormState;
   onFormChange: (state: FormState) => void;
   onSubmitted: (arg: Argument) => void;
-  onVoteChange: (argumentId: string, voted: boolean) => void;
+  onReactionChange: (argumentId: string, reactionType: ReactionType, active: boolean) => void;
   onExplain?: (id: string) => void;
   onDeleted?: (argumentId: string) => void;
 }
@@ -27,7 +27,7 @@ export default function ArgumentCluster({
   studentId,
   form,
   onFormChange,
-  onVoteChange,
+  onReactionChange,
   onExplain,
   onDeleted,
 }: Props) {
@@ -56,7 +56,7 @@ export default function ArgumentCluster({
                 studentId={studentId}
                 motionText={motionText}
                 replyCount={directChildCount > 0 ? directChildCount : undefined}
-                onVoteChange={onVoteChange}
+                onReactionChange={onReactionChange}
                 onBuildOn={
                   !isAnyFormOpen
                     ? (arg) => onFormChange({ kind: 'modal-response', motionId, parent: arg })
@@ -80,7 +80,7 @@ export default function ArgumentCluster({
         studentId={studentId}
         motionText={motionText}
         replyCount={responses.length > 0 ? responses.length : undefined}
-        onVoteChange={onVoteChange}
+        onReactionChange={onReactionChange}
         onBuildOn={
           !isAnyFormOpen
             ? (arg) => onFormChange({ kind: 'modal-response', motionId, parent: arg })

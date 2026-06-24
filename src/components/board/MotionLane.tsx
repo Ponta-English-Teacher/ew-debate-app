@@ -1,6 +1,6 @@
 'use client';
 
-import type { Motion, Argument } from '@/types';
+import type { Motion, Argument, ReactionType } from '@/types';
 import type { FormState, Cluster } from './MotionRiver';
 import { i18n } from '@/lib/i18n';
 import ArgumentForm from './ArgumentForm';
@@ -15,7 +15,7 @@ interface Props {
   form: FormState;
   onFormChange: (state: FormState) => void;
   onSubmitted: (arg: Argument) => void;
-  onVoteChange: (argumentId: string, voted: boolean) => void;
+  onReactionChange: (argumentId: string, reactionType: ReactionType, active: boolean) => void;
 }
 
 export default function MotionLane({
@@ -26,7 +26,7 @@ export default function MotionLane({
   form,
   onFormChange,
   onSubmitted,
-  onVoteChange,
+  onReactionChange,
 }: Props) {
   const isClaimFormOpen = form.kind === 'claim' && form.motionId === motion.id;
   const isAnyFormOpen = form.kind !== 'closed';
@@ -83,7 +83,7 @@ export default function MotionLane({
             form={form}
             onFormChange={onFormChange}
             onSubmitted={onSubmitted}
-            onVoteChange={onVoteChange}
+            onReactionChange={onReactionChange}
           />
         ))}
       </div>

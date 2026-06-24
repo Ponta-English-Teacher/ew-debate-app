@@ -8,6 +8,8 @@ export const i18n = {
     studentIdPlaceholder: 'Optional',
     classCodeLabel: 'Class code',
     classCodePlaceholder: 'e.g. EW-4F2A',
+    teamLabel: 'Your team',
+    teamRequired: 'Please choose Pro Team or Con Team.',
     joinButton: 'Join Session',
     required: 'Please enter your name and class code.',
     invalidCode: 'Session not found. Check your class code and try again.',
