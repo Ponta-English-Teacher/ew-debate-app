@@ -9,10 +9,22 @@ import SegmentCard, { type SegmentSide } from '@/components/teacher/SegmentCard'
 type SpeakerRole =
   | 'chairperson_open'
   | 'pro_1'
+  | 'chair_transition_1'
   | 'con_1'
+  | 'chair_transition_2'
   | 'pro_rebuttal'
+  | 'chair_transition_3'
   | 'con_rebuttal'
   | 'chairperson_close';
+
+// Older published debates were generated with only 6 segments and have
+// no chair_transition_* entries — skip those silently rather than
+// rendering an empty placeholder card for content that was never asked for.
+const TRANSITION_ROLES = new Set<SpeakerRole>([
+  'chair_transition_1',
+  'chair_transition_2',
+  'chair_transition_3',
+]);
 
 interface RawSegment {
   role:     string;
@@ -41,35 +53,46 @@ interface SavedDebate {
 // ── Segment display metadata ──────────────────────────────────────────────────
 
 const SEGMENT_META: Record<SpeakerRole, { label: string; sublabel: string; side: SegmentSide }> = {
-  chairperson_open:  { label: 'Chairperson', sublabel: 'Opening',           side: 'chair' },
-  pro_1:             { label: 'PRO',          sublabel: 'First PRO Speaker', side: 'pro'   },
-  con_1:             { label: 'CON',          sublabel: 'First CON Speaker', side: 'con'   },
-  pro_rebuttal:      { label: 'PRO',          sublabel: 'PRO Rebuttal',      side: 'pro'   },
-  con_rebuttal:      { label: 'CON',          sublabel: 'CON Rebuttal',      side: 'con'   },
-  chairperson_close: { label: 'Chairperson', sublabel: 'Closing',           side: 'chair' },
+  chairperson_open:    { label: 'Chairperson', sublabel: 'Opening',            side: 'chair' },
+  pro_1:               { label: 'PRO',         sublabel: 'First PRO Speaker',  side: 'pro'   },
+  chair_transition_1:  { label: 'Chairperson', sublabel: 'Transition',         side: 'chair' },
+  con_1:               { label: 'CON',         sublabel: 'First CON Speaker',  side: 'con'   },
+  chair_transition_2:  { label: 'Chairperson', sublabel: 'Transition',         side: 'chair' },
+  pro_rebuttal:        { label: 'PRO',         sublabel: 'PRO Rebuttal',       side: 'pro'   },
+  chair_transition_3:  { label: 'Chairperson', sublabel: 'Transition',         side: 'chair' },
+  con_rebuttal:        { label: 'CON',         sublabel: 'CON Rebuttal',       side: 'con'   },
+  chairperson_close:   { label: 'Chairperson', sublabel: 'Closing',            side: 'chair' },
 };
 
 const ROLE_ORDER: SpeakerRole[] = [
   'chairperson_open',
   'pro_1',
+  'chair_transition_1',
   'con_1',
+  'chair_transition_2',
   'pro_rebuttal',
+  'chair_transition_3',
   'con_rebuttal',
   'chairperson_close',
 ];
 
 function enrichSegments(raw: RawSegment[]): DisplaySegment[] {
-  return ROLE_ORDER.map(role => {
-    const found = raw.find(s => s.role === role);
-    const meta  = SEGMENT_META[role];
-    return {
-      role,
-      label:    meta.label,
-      sublabel: meta.sublabel,
-      side:     meta.side,
-      text:     found?.text ?? '(No content for this section.)',
-    };
-  });
+  return ROLE_ORDER
+    .map(role => {
+      const found = raw.find(s => s.role === role);
+      // Older debates predate chairperson transitions — omit the card
+      // entirely rather than showing an empty placeholder for them.
+      if (!found && TRANSITION_ROLES.has(role)) return null;
+      const meta = SEGMENT_META[role];
+      return {
+        role,
+        label:    meta.label,
+        sublabel: meta.sublabel,
+        side:     meta.side,
+        text:     found?.text ?? '(No content for this section.)',
+      };
+    })
+    .filter((s): s is DisplaySegment => s !== null);
 }
 
 function timeAgo(iso: string): string {
