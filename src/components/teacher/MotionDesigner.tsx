@@ -7,7 +7,6 @@ import {
   MAX_MESSAGES_IN_REQUEST,
   STAGES,
   STAGE_LABELS,
-  containsJapanese,
   replyToHistory,
   type Cefr,
   type ClassProfile,
@@ -35,16 +34,13 @@ interface Props {
   closeOnUse?:     boolean;
 }
 
-const GREETING =
-  'What would you like your students to debate, or what is your teaching goal?\n' +
-  '生徒にどんなテーマでディベートさせたいですか？日本語でも英語でもどうぞ。';
+const GREETING = 'What would you like your students to debate, or what is your teaching goal?';
 
-// Sent in Japanese when the teacher has been typing in Japanese, so the reply stays in Japanese
-const QUICK_ACTIONS: Array<{ label: string; message: string; messageJa: string }> = [
-  { label: 'Easier',           message: 'Please make the motion easier for my students’ English level, keeping the same topic and intellectual depth.', messageJa: '同じテーマと内容の深さのまま、モーションの英語を生徒のレベルに合わせてもっと簡単にしてください。' },
-  { label: 'More challenging', message: 'Please make the motion more challenging.',                     messageJa: 'モーションをもっと挑戦的にしてください。' },
-  { label: 'Narrower',         message: 'Please make the motion narrower and more specific.',           messageJa: 'モーションの範囲をもっと狭く、具体的にしてください。' },
-  { label: 'Other ideas',      message: 'Please suggest other motion ideas for the same teaching goal.', messageJa: '同じ指導目標で、別のモーション案を提案してください。' },
+const QUICK_ACTIONS: Array<{ label: string; message: string }> = [
+  { label: 'Easier',           message: 'Please make the motion easier for my students’ English level, keeping the same topic and intellectual depth.' },
+  { label: 'More challenging', message: 'Please make the motion more challenging.' },
+  { label: 'Narrower',         message: 'Please make the motion narrower and more specific.' },
+  { label: 'Other ideas',      message: 'Please suggest other motion ideas for the same teaching goal.' },
 ];
 
 export default function MotionDesigner({
@@ -57,7 +53,6 @@ export default function MotionDesigner({
   const [error,   setError]   = useState('');
   const [notice,  setNotice]  = useState('');
   const [lastTopic, setLastTopic] = useState<string | null>(null);
-  const [teacherJapanese, setTeacherJapanese] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
@@ -118,13 +113,6 @@ export default function MotionDesigner({
     }
   }
 
-  // Typed messages decide the conversation language for quick actions
-  function sendTyped() {
-    if (!input.trim() || loading) return;
-    setTeacherJapanese(containsJapanese(input));
-    send(input);
-  }
-
   function retry() {
     const last = entries[entries.length - 1];
     if (last?.role === 'user') send(last.content, entries.slice(0, -1));
@@ -136,7 +124,6 @@ export default function MotionDesigner({
     setNotice('');
     setLastTopic(null);
     setInput('');
-    setTeacherJapanese(false);
   }
 
   function handleUse(motion: string, replaceIndex?: number) {
@@ -251,7 +238,7 @@ export default function MotionDesigner({
                     key={a.label}
                     type="button"
                     disabled={!hasProposals || loading}
-                    onClick={() => send(teacherJapanese ? a.messageJa : a.message)}
+                    onClick={() => send(a.message)}
                     className="text-[11px] font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-40 disabled:hover:bg-indigo-50 rounded-full px-2.5 py-1 transition-colors"
                   >
                     {a.label}
@@ -259,7 +246,7 @@ export default function MotionDesigner({
                 ))}
               </div>
               <form
-                onSubmit={e => { e.preventDefault(); sendTyped(); }}
+                onSubmit={e => { e.preventDefault(); send(input); }}
                 className="flex gap-2 items-end"
               >
                 <textarea
@@ -269,7 +256,7 @@ export default function MotionDesigner({
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                       e.preventDefault();
-                      sendTyped();
+                      send(input);
                     }
                   }}
                   maxLength={MAX_MESSAGE_CHARS}

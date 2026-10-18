@@ -88,7 +88,7 @@ export function trimHistory(messages: DesignerMessage[]): DesignerMessage[] {
 
 // ── Prompt ───────────────────────────────────────────────────────────────────
 
-export function buildSystemPrompt(profile: ClassProfile, context: DesignerContext, japanese = false): string {
+export function buildSystemPrompt(profile: ClassProfile, context: DesignerContext): string {
   const stage = profile.stage ? STAGE_LABELS[profile.stage] : 'not known yet';
   const cefr  = profile.cefr ?? 'not known yet';
 
@@ -147,8 +147,7 @@ Be an honest critic: a ✓ must be earned. Set ok=false whenever there is a real
 Do not refuse ordinary school topics. For students under 18, topics such as dating and relationships, appearance and body, family money, religion or politics ALWAYS need a short "caution" with classroom advice (e.g. keep the debate about rules, not about individual students). Otherwise caution is null.
 
 ## Language
-- Reply language for this turn: ${japanese ? 'JAPANESE (the teacher is writing in Japanese)' : 'ENGLISH (the teacher is writing in English)'}. Write "comment", "question", "pro", "con", check notes and "caution" in that language.
-- "motion" is ALWAYS written in English, even when the whole conversation is in Japanese. Never translate the motion into Japanese.
+- Write everything in English: "comment", "question", "motion", "pro", "con", check notes and "caution".
 - "topic" is a short English label (2–6 words) for the session topic, or null if you have not proposed a motion yet.
 
 ## Output fields
@@ -172,8 +171,8 @@ const checkSchema = {
 export const DESIGNER_RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
-    comment: { type: 'string', description: 'Plain text, 1-3 sentences, in the teacher\'s language. No questions, no markdown, no lists.' },
-    question: { type: 'string', description: 'Exactly one question sentence in the teacher\'s language: a missing class detail, or a specific point about the motion (scope, place, time, who decides, exceptions). Never "Which do you prefer?" or "Do these work?".' },
+    comment: { type: 'string', description: 'Plain text, 1-3 sentences, in English. No questions, no markdown, no lists.' },
+    question: { type: 'string', description: 'Exactly one question sentence in English: a missing class detail, or a specific point about the motion (scope, place, time, who decides, exceptions). Never "Which do you prefer?" or "Do these work?".' },
     profile: {
       type: 'object',
       properties: {
@@ -190,7 +189,7 @@ export const DESIGNER_RESPONSE_SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          motion: { type: 'string', description: 'The motion, written in English only, even if the teacher writes in Japanese.' },
+          motion: { type: 'string' },
           pro:    { type: 'array', items: { type: 'string' } },
           con:    { type: 'array', items: { type: 'string' } },
           checks: {
@@ -255,22 +254,18 @@ export function placeMotion(
   return { fields, message: 'All 3 motion fields are filled. Choose one to replace.' };
 }
 
-// Motions must be English. Detects Japanese (kana / kanji) in text.
-export function containsJapanese(text: string): boolean {
-  return /[぀-ヿ㐀-鿿ｦ-ﾟ]/.test(text);
-}
 
 // ── Reply post-processing (enforces rules the model may ignore) ──────────────
 
-// Split only where a sentence end is followed by a space (or after Japanese 。？！), so "e.g.," stays intact
-const SENTENCE_SPLIT = /(?<=[.!?])\s+|(?<=[。！？])\s*/;
-const isQuestion = (s: string) => /[?？]\s*$/.test(s);
+// Split only where a sentence end is followed by a space, so "e.g.," stays intact
+const SENTENCE_SPLIT = /(?<=[.!?])\s+/;
+const isQuestion = (s: string) => /\?\s*$/.test(s);
 
 // Comment without question sentences, followed by exactly one question.
 export function composeMessage(comment: string, question: string): string {
   const statements = comment.split(SENTENCE_SPLIT).filter(s => s.trim() && !isQuestion(s.trim())).join(' ').trim();
   // Keep the question up to its first question mark (abbreviations like "e.g." can't break it)
-  const q = question.trim().match(/^[^?？]*[?？]/)?.[0].trim() ?? question.trim();
+  const q = question.trim().match(/^[^?]*\?/)?.[0].trim() ?? question.trim();
   return [statements, q].filter(Boolean).join('\n\n');
 }
 
@@ -300,31 +295,24 @@ const REASON_CLAUSE = /\b(as it|as they|because|since|so that|in order to|to (en
 const SENSITIVE = /\b(dating|to date|go on dates?|boyfriends?|girlfriends?|relationships?|romantic|romance|make-?up|hairstyles?|hair colou?r|appearance|body image|weight|religions?|religious|politics|political|elections?|family income|poverty)\b/i;
 const ADULT_STAGES: Stage[] = ['university', 'adult'];
 
-export function applyGuards(reply: DesignerReply, japanese: boolean): DesignerReply {
-  const t = (en: string, ja: string) => (japanese ? ja : en);
+export function applyGuards(reply: DesignerReply): DesignerReply {
   const proposals = reply.proposals.map(p => {
     const checks = { ...p.checks };
     if (!reply.profile.cefr) {
       checks.language = {
         ok: false,
-        note: t('Set the English level (CEFR) so the wording can be checked.', '英語レベル（CEFR）を設定すると、表現の難しさを確認できます。'),
+        note: 'Set the English level (CEFR) so the wording can be checked.',
       };
     }
     if (REASON_CLAUSE.test(p.motion)) {
-      const note = t(
-        'The motion includes a reason, which helps one side. State only the policy.',
-        'モーションに理由が含まれており、片方の立場に有利です。方針だけを述べましょう。',
-      );
+      const note = 'The motion includes a reason, which helps one side. State only the policy.';
       checks.clear = { ok: false, note };
       checks.balanced = { ok: false, note };
     }
     let caution = p.caution;
     const minor = !reply.profile.stage || !ADULT_STAGES.includes(reply.profile.stage);
     if (!caution && minor && SENSITIVE.test(`${p.motion} ${reply.topic ?? ''}`)) {
-      caution = t(
-        'This topic can be personal for students under 18. Keep the debate about rules and policies, not about individual students or their own experiences.',
-        '18歳未満の生徒には個人的になりやすいテーマです。個々の生徒や本人の経験ではなく、ルールや方針についての議論になるよう配慮してください。',
-      );
+      caution = 'This topic can be personal for students under 18. Keep the debate about rules and policies, not about individual students or their own experiences.';
     }
     return { ...p, checks, caution };
   });
@@ -338,7 +326,7 @@ export function cleanItem(text: string): string {
 
 // ── "Other ideas" must not repeat earlier motions ────────────────────────────
 
-const OTHER_IDEAS_REQUEST = /other (motion )?ideas|different motions|別のモーション|別の案|他の案/i;
+const OTHER_IDEAS_REQUEST = /other (motion )?ideas|different motions/i;
 
 export function isOtherIdeasRequest(text: string): boolean {
   return OTHER_IDEAS_REQUEST.test(text);

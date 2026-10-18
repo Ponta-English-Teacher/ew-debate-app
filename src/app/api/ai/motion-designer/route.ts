@@ -13,7 +13,6 @@ import {
   buildSystemPrompt,
   cleanItem,
   composeMessage,
-  containsJapanese,
   isMirrorPair,
   isOtherIdeasRequest,
   previousMotions,
@@ -43,25 +42,14 @@ export async function POST(req: NextRequest) {
   }
   const { messages, profile, context } = parsed;
 
-  // Reply in the language of the teacher's latest message
-  const japanese = containsJapanese(messages[messages.length - 1].content);
   const chat: OpenAI.ChatCompletionMessageParam[] = [
-    { role: 'system', content: buildSystemPrompt(profile, context, japanese) },
+    { role: 'system', content: buildSystemPrompt(profile, context) },
     ...trimHistory(messages),
   ];
 
   let reply: DesignerReply;
   try {
     reply = sanitizeReply(await complete(chat), profile);
-    // Motions must be in English. Ask once more if any came back in Japanese.
-    if (reply.proposals.some(p => containsJapanese(p.motion))) {
-      const retry = sanitizeReply(await complete([
-        ...chat,
-        { role: 'assistant', content: JSON.stringify({ ...reply, message: undefined }) },
-        { role: 'system', content: 'Your reply wrote a motion in Japanese. Rewrite the same reply, but write every "motion" in English. Keep the message, PRO, CON and notes in the teacher\'s language.' },
-      ]), profile);
-      reply = { ...retry, proposals: retry.proposals.filter(p => !containsJapanese(p.motion)) };
-    }
     // "Other ideas" must give new motions. Ask once more, then drop repeats.
     const earlier = previousMotions(messages);
     const isRepeat = (m: string) => earlier.some(e => sameMotion(e, m));
@@ -70,14 +58,14 @@ export async function POST(req: NextRequest) {
         ...chat,
         { role: 'system', content: `These motions were already proposed; give different ones:\n${earlier.map(m => `- ${m}`).join('\n')}` },
       ]), profile);
-      const fresh = retry.proposals.filter(p => !isRepeat(p.motion) && !containsJapanese(p.motion));
+      const fresh = retry.proposals.filter(p => !isRepeat(p.motion));
       if (fresh.length) reply = { ...retry, proposals: fresh };
     }
   } catch {
     return NextResponse.json({ error: 'AI unavailable' }, { status: 502 });
   }
 
-  return NextResponse.json(applyGuards(reply, japanese));
+  return NextResponse.json(applyGuards(reply));
 }
 
 async function complete(chat: OpenAI.ChatCompletionMessageParam[]): Promise<RawDesignerReply> {
