@@ -1,33 +1,67 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { isTeacherAuthed, setTeacherAuthed } from '@/lib/teacherAuth';
 
 export default function TeacherAuthGate({ children }: { children: React.ReactNode }) {
   const [authed, setAuthed] = useState(false);
   const [ready, setReady] = useState(false);
   const [pw, setPw] = useState('');
   const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
+  // Ask the server whether the HTTP-only teacher cookie is valid
   useEffect(() => {
-    setAuthed(isTeacherAuthed());
-    setReady(true);
+    fetch('/api/teacher/me', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(data => setAuthed(data?.authed === true))
+      .catch(() => setAuthed(false))
+      .finally(() => setReady(true));
   }, []);
 
-  function handleSubmit(e: React.FormEvent) {
+  // If the login expires mid-session, any 401 from the API returns to the password screen
+  useEffect(() => {
+    if (!authed) return;
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const res = await originalFetch(...args);
+      const url = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : args[0].url;
+      if (res.status === 401 && new URL(url, window.location.href).pathname.startsWith('/api/')) {
+        setAuthed(false);
+      }
+      return res;
+    };
+    return () => { window.fetch = originalFetch; };
+  }, [authed]);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const expected = process.env.NEXT_PUBLIC_MODERATOR_PASSWORD;
-    if (expected && pw === expected) {
-      setTeacherAuthed();
-      setAuthed(true);
-      setError(false);
-    } else {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/teacher/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (res.ok) {
+        setAuthed(true);
+        setError(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setErrorMessage(res.status === 401 ? 'Incorrect password. Please try again.' : (data.error ?? 'Login failed. Please try again.'));
+        setError(true);
+      }
+    } catch {
+      setErrorMessage('Network error. Please try again.');
       setError(true);
+    } finally {
       setPw('');
+      setSubmitting(false);
     }
   }
 
-  // Avoid flash of password screen before sessionStorage is read
+  // Avoid flash of password screen before the server responds
   if (!ready) return null;
 
   if (authed) return <>{children}</>;
@@ -65,13 +99,14 @@ export default function TeacherAuthGate({ children }: { children: React.ReactNod
             }`}
           />
           {error && (
-            <p className="text-xs text-rose-500">Incorrect password. Please try again.</p>
+            <p className="text-xs text-rose-500">{errorMessage}</p>
           )}
           <button
             type="submit"
+            disabled={submitting}
             className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg px-4 py-2.5 transition-colors"
           >
-            Enter
+            {submitting ? '…' : 'Enter'}
           </button>
         </form>
       </div>

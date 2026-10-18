@@ -55,6 +55,11 @@ export default function TeacherPanel() {
     } catch {}
   }
 
+  async function logout() {
+    await fetch('/api/teacher/logout', { method: 'POST' }).catch(() => {});
+    window.location.reload();
+  }
+
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #EEF2FF 0%, #F8F9FF 60%, #FFF7ED 100%)' }}>
       <div className="max-w-2xl mx-auto px-4 py-10">
@@ -70,6 +75,12 @@ export default function TeacherPanel() {
             <h1 className="text-xl font-bold text-slate-800 tracking-tight">{t.title}</h1>
             <p className="text-xs text-slate-500">EW Debate App</p>
           </div>
+          <button
+            onClick={logout}
+            className="ml-auto text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 bg-white rounded-lg px-3 py-1.5 transition-colors"
+          >
+            Log out
+          </button>
         </div>
 
         {/* Create session form */}

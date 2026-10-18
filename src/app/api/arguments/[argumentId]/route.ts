@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireTeacher } from '@/lib/teacherAuthServer';
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ argumentId: string }> }
 ) {
+  const denied = requireTeacher(req);
+  if (denied) return denied;
+
   const { argumentId } = await params;
   const body = await req.json();
 

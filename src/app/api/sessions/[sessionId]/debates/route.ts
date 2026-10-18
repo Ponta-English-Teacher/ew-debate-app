@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { isTeacherRequest, requireTeacher } from '@/lib/teacherAuthServer';
 
 // GET /api/sessions/[sessionId]/debates?motionId=...
 // No auth → returns published debate only (student view)
-// With valid Bearer auth → returns any debate for the motion (teacher view)
+// With valid teacher cookie → returns any debate for the motion (teacher view)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
@@ -16,9 +17,7 @@ export async function GET(
     return NextResponse.json({ error: 'motionId is required' }, { status: 400 });
   }
 
-  const auth = req.headers.get('authorization');
-  const expected = process.env.NEXT_PUBLIC_MODERATOR_PASSWORD;
-  const isTeacher = expected && auth === `Bearer ${expected}`;
+  const isTeacher = isTeacherRequest(req);
 
   const db = createServerClient();
 
@@ -52,11 +51,8 @@ export async function POST(
 ) {
   const { sessionId } = await params;
 
-  const auth = req.headers.get('authorization');
-  const expected = process.env.NEXT_PUBLIC_MODERATOR_PASSWORD;
-  if (!expected || auth !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = requireTeacher(req);
+  if (denied) return denied;
 
   const body = await req.json().catch(() => ({}));
   const { motionId, title, segments, published = false } = body;

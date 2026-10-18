@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireTeacher } from '@/lib/teacherAuthServer';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const denied = requireTeacher(req);
+  if (denied) return denied;
+
   const db = createServerClient();
 
   const { data: sessions, error } = await db
@@ -28,6 +32,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = requireTeacher(req);
+  if (denied) return denied;
+
   const body = await req.json();
   const topic = body?.topic?.trim();
   const motions: string[] = body?.motions ?? [];

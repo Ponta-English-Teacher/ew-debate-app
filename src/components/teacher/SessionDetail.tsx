@@ -154,9 +154,6 @@ export default function SessionDetail() {
     try {
       const res = await fetch(`/api/sessions/${session.id}/reset`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_MODERATOR_PASSWORD}`,
-        },
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

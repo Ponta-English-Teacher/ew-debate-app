@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireTeacher } from '@/lib/teacherAuthServer';
 
 // PATCH /api/debates/[debateId]
 // Auth required. Updates the published flag (and nothing else).
@@ -10,11 +11,8 @@ export async function PATCH(
 ) {
   const { debateId } = await params;
 
-  const auth = req.headers.get('authorization');
-  const expected = process.env.NEXT_PUBLIC_MODERATOR_PASSWORD;
-  if (!expected || auth !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = requireTeacher(req);
+  if (denied) return denied;
 
   const body = await req.json().catch(() => ({}));
   const { published } = body;

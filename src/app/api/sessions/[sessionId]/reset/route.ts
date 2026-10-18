@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireTeacher } from '@/lib/teacherAuthServer';
 
 // POST /api/sessions/[sessionId]/reset
 // Deletes all arguments and votes for a session.
-// Requires Authorization: Bearer <NEXT_PUBLIC_MODERATOR_PASSWORD>.
+// Requires an authenticated teacher (HTTP-only cookie).
 // Does NOT delete the session, motions, or students.
 export async function POST(
   req: NextRequest,
@@ -12,11 +13,8 @@ export async function POST(
   const { sessionId } = await params;
 
   // Server-side password check — prevents direct API calls without auth
-  const auth = req.headers.get('authorization');
-  const expected = process.env.NEXT_PUBLIC_MODERATOR_PASSWORD;
-  if (!expected || auth !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = requireTeacher(req);
+  if (denied) return denied;
 
   const db = createServerClient();
 

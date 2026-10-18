@@ -118,8 +118,6 @@ function timeAgo(iso: string): string {
 
 const BG = { background: 'linear-gradient(135deg, #EEF2FF 0%, #F8F9FF 60%, #FFF7ED 100%)' };
 
-const BEARER = `Bearer ${process.env.NEXT_PUBLIC_MODERATOR_PASSWORD}`;
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function DebateStudio() {
@@ -166,9 +164,7 @@ export default function DebateStudio() {
     setLoadingSaved(true);
     setSavedDebate(null);
 
-    fetch(`/api/sessions/${sessionId}/debates?motionId=${selectedMotionId}`, {
-      headers: { 'Authorization': BEARER },
-    })
+    fetch(`/api/sessions/${sessionId}/debates?motionId=${selectedMotionId}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => setSavedDebate(data ?? null))
       .catch(() => setSavedDebate(null))
@@ -186,7 +182,7 @@ export default function DebateStudio() {
     try {
       const res = await fetch(`/api/sessions/${sessionId}/generate-debate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': BEARER },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ motionId: selectedMotionId }),
       });
       const data = await res.json().catch(() => ({}));
@@ -220,7 +216,7 @@ export default function DebateStudio() {
     try {
       const res = await fetch(`/api/sessions/${sessionId}/debates`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': BEARER },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ motionId: selectedMotionId, title, segments, published: true }),
       });
       const data = await res.json().catch(() => ({}));
@@ -241,7 +237,7 @@ export default function DebateStudio() {
     try {
       const res = await fetch(`/api/debates/${savedDebate.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': BEARER },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ published: false }),
       });
       const data = await res.json().catch(() => ({}));

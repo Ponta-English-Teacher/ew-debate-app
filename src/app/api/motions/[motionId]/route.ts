@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireTeacher } from '@/lib/teacherAuthServer';
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ motionId: string }> }
 ) {
+  const denied = requireTeacher(req);
+  if (denied) return denied;
+
   const { motionId } = await params;
   const db = createServerClient();
 

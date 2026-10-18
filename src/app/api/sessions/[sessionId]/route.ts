@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { requireTeacher } from '@/lib/teacherAuthServer';
 
 export async function GET(
   _req: NextRequest,
@@ -26,6 +27,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
+  const denied = requireTeacher(req);
+  if (denied) return denied;
+
   const { sessionId } = await params;
   const body = await req.json();
 
@@ -51,9 +55,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
+  const denied = requireTeacher(req);
+  if (denied) return denied;
+
   const { sessionId } = await params;
   const db = createServerClient();
 
