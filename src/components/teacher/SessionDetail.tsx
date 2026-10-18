@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import type { Session, Motion } from '@/types';
 import { type SessionSettings, DEFAULT_SETTINGS, mergeSettings } from '@/lib/sessionSettings';
 import { i18n } from '@/lib/i18n';
+import MotionDesigner from './MotionDesigner';
 
 const AI_FEATURE_DEFS: Array<{ key: keyof SessionSettings; label: string; desc: string }> = [
   { key: 'feature_how_to_say',      label: 'How to say it',      desc: 'Helps students translate or express their idea in English.' },
@@ -28,6 +29,8 @@ export default function SessionDetail() {
   const [newMotion, setNewMotion] = useState('');
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState('');
+  const [designerOpen, setDesignerOpen] = useState(false);
+  const newMotionRef = useRef<HTMLInputElement>(null);
 
   const [aiSettings,     setAiSettings]     = useState<SessionSettings>(DEFAULT_SETTINGS);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -123,6 +126,13 @@ export default function SessionDetail() {
     } finally {
       setAdding(false);
     }
+  }
+
+  // AI Motion Designer: put the motion in the Add Motion field for the teacher to confirm
+  function handleUseMotion(motion: string): string {
+    setNewMotion(motion);
+    setTimeout(() => newMotionRef.current?.focus(), 0);
+    return 'Added to the Add Motion field. Click "+ Add motion" to save it.';
   }
 
   async function deleteMotion(id: string) {
@@ -328,6 +338,7 @@ export default function SessionDetail() {
           {motions.length < 3 ? (
             <form onSubmit={handleAddMotion} className="flex gap-2">
               <input
+                ref={newMotionRef}
                 type="text"
                 value={newMotion}
                 onChange={e => setNewMotion(e.target.value)}
@@ -345,6 +356,22 @@ export default function SessionDetail() {
           ) : (
             <p className="text-xs text-slate-400">Maximum 3 motions reached.</p>
           )}
+
+          <button
+            type="button"
+            onClick={() => setDesignerOpen(true)}
+            className="mt-3 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg px-3 py-1.5 transition-colors"
+          >
+            {t.designMotions}
+          </button>
+          <MotionDesigner
+            open={designerOpen}
+            onClose={() => setDesignerOpen(false)}
+            onUseMotion={handleUseMotion}
+            disabledReason={motions.length >= 3 ? 'This session already has 3 motions. Remove one before adding another.' : undefined}
+            context={{ topic: session.topic, existingMotions: motions.map(m => m.motion_text) }}
+            closeOnUse
+          />
 
           {addError && <p className="text-xs text-rose-600 mt-2">{addError}</p>}
         </div>

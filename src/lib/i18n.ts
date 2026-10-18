@@ -45,6 +45,7 @@ export const i18n = {
     topicLabel: 'Topic',
     topicPlaceholder: 'e.g. AI in Schools',
     addMotion: '+ Add motion',
+    designMotions: '✨ Design motions with AI',
     removeMotion: 'Remove',
     motionLabel: 'Motion',
     motionPlaceholder: 'e.g. AI should be banned from schools.',

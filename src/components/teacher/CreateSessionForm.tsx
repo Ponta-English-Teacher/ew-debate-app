@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import type { Session } from '@/types';
 import { i18n } from '@/lib/i18n';
+import { MAX_MOTIONS, placeMotion } from '@/lib/motionDesigner';
+import MotionDesigner from './MotionDesigner';
 
 interface Props {
   onCreated: (session: Session & { motion_count: number }) => void;
@@ -14,6 +16,7 @@ export default function CreateSessionForm({ onCreated }: Props) {
   const [motions, setMotions] = useState(['', '']);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [designerOpen, setDesignerOpen] = useState(false);
 
   function addMotion() {
     if (motions.length < 3) setMotions([...motions, '']);
@@ -26,6 +29,16 @@ export default function CreateSessionForm({ onCreated }: Props) {
   function updateMotion(idx: number, value: string) {
     setMotions(motions.map((m, i) => (i === idx ? value : m)));
   }
+
+  // AI Motion Designer: put an approved motion into the form (nothing is saved)
+  function handleUseMotion(motion: string, aiTopic: string | null, replaceIndex?: number): string {
+    const result = placeMotion(motions, motion, replaceIndex);
+    setMotions(result.fields);
+    if (!topic.trim() && aiTopic) setTopic(aiTopic);
+    return result.message;
+  }
+
+  const allMotionsFilled = motions.length >= MAX_MOTIONS && motions.every(m => m.trim());
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,6 +74,7 @@ export default function CreateSessionForm({ onCreated }: Props) {
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
       <h2 className="text-base font-semibold text-slate-800 mb-5">{t.newSession}</h2>
 
@@ -77,6 +91,15 @@ export default function CreateSessionForm({ onCreated }: Props) {
           className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition"
         />
       </div>
+
+      {/* AI Motion Designer */}
+      <button
+        type="button"
+        onClick={() => setDesignerOpen(true)}
+        className="w-full mb-4 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 rounded-lg px-4 py-2 transition-colors"
+      >
+        {t.designMotions}
+      </button>
 
       {/* Motions */}
       <div className="space-y-3 mb-3">
@@ -129,5 +152,13 @@ export default function CreateSessionForm({ onCreated }: Props) {
         {submitting ? t.creating : t.createSession}
       </button>
     </form>
+    <MotionDesigner
+      open={designerOpen}
+      onClose={() => setDesignerOpen(false)}
+      onUseMotion={handleUseMotion}
+      replaceChoices={allMotionsFilled ? motions : undefined}
+      context={{ topic, existingMotions: motions }}
+    />
+    </>
   );
 }
