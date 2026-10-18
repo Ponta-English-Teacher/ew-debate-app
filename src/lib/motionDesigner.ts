@@ -2,7 +2,7 @@
 // Used by /api/ai/motion-designer (server) and the MotionDesigner panel (client).
 
 // Change the model here to switch the Motion Designer (e.g. to 'gpt-4o').
-export const MOTION_DESIGNER_MODEL = 'gpt-4o-mini';
+export const MOTION_DESIGNER_MODEL = 'gpt-4o';
 
 export const STAGES = ['elementary', 'junior_high', 'high_school', 'university', 'adult'] as const;
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2'] as const;
@@ -107,9 +107,9 @@ export function buildSystemPrompt(profile: ClassProfile, context: DesignerContex
 ${contextLines.length ? '\n## Session context\n' + contextLines.join('\n') + '\n' : ''}
 ## Conversation rules
 1. ONE question per reply, at the end. If you want to offer options, put them inside that single question ("Should the rule come from schools, or from parents?"). Never write a second question sentence.
-2. Understand the teacher's goal. If the idea is vague (e.g. "technology", "dating"), clarify the most important missing point first: who decides, where or when it applies, which group is affected, or what exactly would change. Do not accept a vague idea as a motion: when the teacher gives only a broad topic (one or two words, or no clear issue), propose NOTHING yet (proposals = []) and ask your clarification question.
+2. Understand the teacher's goal. If the idea is vague (e.g. "technology", "dating"), clarify the most important missing point first: who decides, where or when it applies, which group is affected, or what exactly would change. Do not accept a vague idea as a motion: when the teacher gives only a broad topic (one or two words, or no clear issue), propose nothing yet (proposals = []) and ask your clarification question.
 3. Never ask for something the profile already gives. If the school stage is unknown and matters, ask about it. If the CEFR level is still unknown after your first proposal, your next question should ask about it, so you can check the wording.
-4. Do not interrogate. Once the issue is clear (usually after one or two clarifications), propose motions and keep refining.
+4. Do not over-clarify. As soon as the teacher has identified a reasonably specific issue (e.g. "Companies deciding whether office workers must come to the office", "Limiting how much time young people spend on social media", "Schools." in answer to who should set dating rules), propose at least one motion IN THAT SAME REPLY. You may still ask one question to refine it. Never answer a specific issue with only another question.
 5. When proposing, offer 1 or 2 motions, then ask ONE follow-up question that helps the teacher improve the motion. It must address exactly one of these:
    - scope or specificity (e.g. "Should it cover all homework, or only essays?")
    - who is affected (e.g. "Should the rule apply to all grades, or only first-year students?")
@@ -118,7 +118,7 @@ ${contextLines.length ? '\n## Session context\n' + contextLines.join('\n') + '\n
    - who decides (e.g. "Should the school decide, or parents?")
    - PRO/CON balance: if one side looks much easier to argue, ask about a change of scope that would make it fairer.
    Questions you must NEVER ask:
-   - which side the motion should take ("allowing or banning?", "benefits or risks?", "beneficial or harmful?"): every motion is debated from both sides;
+   - which side the motion should take, or a choice between the PRO and CON positions ("allowing or banning?", "benefits or risks?", "decided by the school, or should students be free to choose?", "only healthy food, or some unhealthy food too?"): every motion is debated from both sides, so those positions belong to the debaters, not to the motion;
    - about reasons, arguments, effects or impacts, or whether the motion should mention or consider them (e.g. "Should the motion mention comfort?", "Should the motion consider the impact on families?"): those belong in the debate, not in the motion;
    - about a detail you have just decided in the motion (e.g. after narrowing it to first-year students, do not ask whether it should apply only to first-year students);
    - the motion itself turned into a question ("Should schools ban phones?");
@@ -147,6 +147,7 @@ ${contextLines.length ? '\n## Session context\n' + contextLines.join('\n') + '\n
 
 ## How to write a motion
 - Use a policy motion: "[who] should [do what]" (e.g. "Junior high schools should prohibit students from dating."), unless the teacher asks for another type.
+- State a concrete rule that students can clearly support or oppose (e.g. "prohibit students from dating", "require uniforms", "limit social media to one hour a day"). Avoid vague wording such as "set rules about…", "have restrictions on…" or "create guidelines for…".
 - State the policy only. Do NOT add reasons or purposes ("…to protect students", "…to ensure skills", "…due to its negative effects"): they argue for one side.
 - Use neutral words. Avoid loaded words that favour one side (e.g. "junk food", "unfair", "harmful", "waste").
 
@@ -367,7 +368,7 @@ export function sameMotion(a: string, b: string): boolean {
 // ── Reply review (problems the model may ignore despite the prompt) ──────────
 
 const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
-const QUESTION_FILLER = new Set(['should', 'the', 'a', 'an', 'this', 'that', 'it', 'motion', 'rule', 'rules', 'debate', 'apply', 'applies', 'to', 'or', 'and', 'only', 'just', 'also', 'all', 'some', 'any', 'be', 'for', 'of', 'in', 'on', 'at', 'like', 'such', 'as', 'there', 'include', 'focus', 'we', 'you', 'your', 'certain', 'specific']);
+const QUESTION_FILLER = new Set(['should', 'the', 'a', 'an', 'this', 'that', 'it', 'motion', 'rule', 'rules', 'debate', 'apply', 'applies', 'to', 'or', 'and', 'only', 'just', 'also', 'all', 'some', 'any', 'be', 'for', 'of', 'in', 'on', 'at', 'like', 'such', 'as', 'there', 'include', 'focus', 'we', 'you', 'your', 'certain', 'specific', 'have', 'has', 'can', 'what', 'they', 'them', 'their', 'whether', 'would', 'will', 'more', 'other', 'too', 'with']);
 // Overlap of meaningful words only, for spotting the same question asked in different words
 function questionOverlap(a: string, b: string): { ratio: number; shared: number } {
   const A = new Set(words(a).filter(w => !QUESTION_FILLER.has(w))), B = new Set(words(b).filter(w => !QUESTION_FILLER.has(w)));
@@ -393,7 +394,34 @@ export function previousQuestions(messages: DesignerMessage[]): string[] {
 const ASKS_FOR_REASONS = /\b(mention|consider|address|discuss|reflect)\w*\b[^?]*\b(impacts?|effects?|affects?|affected|consequences?|how (this|it))\b|\bwhy\b|\bwhat\b[^?]*\b(reasons?|arguments?)\b|\b(mention|include|add|state|list|specify|explain|give)\b[^?]*\b(reasons?|arguments?|benefits?|advantages?)\b|\b(reasons?|arguments?)\s+(for|against|why|behind)\b/i;
 // Asking which side the motion should take: a choice between a positive and a negative framing
 const ASKS_WHICH_SIDE = /\b(benefits?|advantages?|positives?|beneficial|helpful)\b[^?]*\bor\b[^?]*\b(risks?|harms?|drawbacks?|disadvantages?|negatives?|harmful)\b|\b(risks?|harms?|drawbacks?|disadvantages?|negatives?|harmful)\b[^?]*\bor\b[^?]*\b(benefits?|advantages?|positives?|beneficial|helpful)\b|\b(pros and cons|benefits and (drawbacks|risks|challenges)|advantages and disadvantages|positives and negatives)\b|\b(about|focus on|be)\b[^?]*\b(allow\w*|ban\w*|permit\w*)\b[^?]*\bor\b[^?]*\b(ban\w*|allow\w*|restrict\w*|permit\w*|prohibit\w*)\b/i;
-const TWO_QUESTIONS = /,?\s+and\s+(should|will|would|do|does|is|are|can|could)\s/i;
+// Vague motions ("Schools should set rules about dating.")
+const VAGUE_MOTION = /\b(set|have|create|make|introduce|implement|establish|adopt)\s+([a-z-]+\s+)?(rules|restrictions|guidelines|policies|regulations)\b/i;
+// Generic confirmation questions ("Is this simplified wording suitable for your students?")
+const GENERIC_QUESTION = /^(is|are|does|do|would|will)\s+(this|these|it|that|they)\b[^?]*\b(suitable|ok|okay|good|work|appropriate|clear|fine|right|helpful)\b|\bwhich (one|motion|option) do you prefer\b|\bdo (these|they) work\b/i;
+
+// Two questions in one sentence ("…, and who should enforce them?")
+const TWO_QUESTIONS = /[,;]?\s+and\s+(should|will|would|do|does|is|are|can|could|who|what|where|when|how|which|whether)\b/i;
+
+// PRO-vs-CON choice: one alternative restates the motion (or the teacher's issue)
+// and the other is a contrasting position.
+const CONTRAST_WORDS = new Set(['allow', 'allowed', 'let', 'freedom', 'free', 'choose', 'choice', 'decide', 'decided', 'not', 'no', 'without', 'less', 'ban', 'banned', 'prohibit', 'require', 'required', 'permit', 'instead', 'keep', 'stop', 'abolish', 'unhealthy']);
+const stem = (w: string) => w.replace(/(ies|es|s)$/, '');
+const meaningful = (s: string) => words(s).filter(w => w.length > 2 && !QUESTION_FILLER.has(w)).map(stem);
+export function asksToChooseSide(question: string, references: string[]): boolean {
+  const body = question.replace(/^\s*should\s+/i, '').replace(/\?\s*$/, '');
+  const parts = body.split(/,?\s+or\s+/i);
+  if (parts.length !== 2) return false;
+  const restates = (part: string) => {
+    const p = meaningful(part);
+    if (p.length < 2) return false;
+    return references.some(ref => {
+      const r = new Set(meaningful(ref));
+      return p.filter(w => r.has(w)).length / p.length >= 0.6;
+    });
+  };
+  const contrasts = (part: string) => words(part).some(w => CONTRAST_WORDS.has(w));
+  return (restates(parts[0]) && contrasts(parts[1])) || (restates(parts[1]) && contrasts(parts[0]));
+}
 
 // Returns the problems found in a reply (empty when it is fine)
 export function reviewReply(reply: DesignerReply, messages: DesignerMessage[]): string[] {
@@ -403,7 +431,8 @@ export function reviewReply(reply: DesignerReply, messages: DesignerMessage[]): 
 
   if (question.endsWith('?')) {
     if (ASKS_FOR_REASONS.test(question)) problems.push('Your question asks about reasons or arguments. Ask about scope, who is affected, where/when, exceptions or who decides instead.');
-    if (ASKS_WHICH_SIDE.test(question)) problems.push('Your question asks which side the motion should take (e.g. allow vs ban, benefits vs risks). Both sides are debated anyway; ask about scope, who is affected, where/when, exceptions or who decides instead.');
+    if (ASKS_WHICH_SIDE.test(question) || asksToChooseSide(question, [...reply.proposals.map(p => p.motion), lastTeacher])) problems.push('Your question asks which side the motion should take (e.g. allow vs ban, benefits vs risks). Both sides are debated anyway; ask about scope, who is affected, where/when, exceptions or who decides instead.');
+    if (GENERIC_QUESTION.test(question)) problems.push('Your question is a generic confirmation. Ask about scope, who is affected, where/when, exceptions or who decides instead.');
     if (TWO_QUESTIONS.test(question)) problems.push('Your question joins two questions. Ask only one.');
     if (reply.proposals.some(p => overlap(question, p.motion) >= 0.75)) problems.push('Your question just repeats the motion. Ask something that would improve it.');
     if (previousQuestions(messages).some(q => overlap(question, q) >= 0.7 || (({ ratio, shared }) => ratio >= 0.75 && shared >= 3)(questionOverlap(question, q)))) problems.push('You already asked this question. Ask about a different aspect.');
@@ -415,6 +444,11 @@ export function reviewReply(reply: DesignerReply, messages: DesignerMessage[]): 
     const added = new Set(reply.proposals.flatMap(p => words(p.motion)).filter(w => w.length > 3 && !before.has(w) && !POLARITY_WORDS.has(w)));
     if (new Set(words(question).filter(w => added.has(w))).size >= 2) problems.push('Your question asks about the detail you just added to the motion. Ask about a different point that is still open.');
   }
+  // Over-clarifying: after the teacher has answered at least once, a motion must appear
+  if (!reply.proposals.length && messages.filter(m => m.role === 'user').length >= 2) {
+    problems.push('The teacher has now described the issue. Propose at least one motion in this reply; you may still ask one question to refine it.');
+  }
+  if (reply.proposals.some(p => VAGUE_MOTION.test(p.motion))) problems.push('A motion is too vague ("set rules about…"). State the concrete rule students will debate (e.g. "prohibit…", "require…", "limit … to …").');
   if (reply.proposals.some(p => REASON_CLAUSE.test(p.motion))) problems.push('A motion includes a reason or purpose (e.g. "to ensure…", "due to…"). State only the policy.');
 
   // A typed answer from the teacher should change the motion
