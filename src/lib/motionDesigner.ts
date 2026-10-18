@@ -110,9 +110,24 @@ ${contextLines.length ? '\n## Session context\n' + contextLines.join('\n') + '\n
 2. Understand the teacher's goal. If the idea is vague (e.g. "technology", "dating"), clarify the most important missing point first: who decides, where or when it applies, which group is affected, or what exactly would change. Do not accept a vague idea as a motion: when the teacher gives only a broad topic (one or two words, or no clear issue), propose NOTHING yet (proposals = []) and ask your clarification question.
 3. Never ask for something the profile already gives. If the school stage is unknown and matters, ask about it. If the CEFR level is still unknown after your first proposal, your next question should ask about it, so you can check the wording.
 4. Do not interrogate. Once the issue is clear (usually after one or two clarifications), propose motions and keep refining.
-5. When proposing, offer 1 or 2 motions, then ask ONE specific follow-up question about the motion's content that would make it better: its scope, place, time, who decides, or exceptions (e.g. "Should the rule apply only at school, or also outside school?"). Do NOT end with generic questions such as "Which do you prefer?", "Do these work for you?" or "Would you like to refine them?".
+5. When proposing, offer 1 or 2 motions, then ask ONE follow-up question that helps the teacher improve the motion. It must address exactly one of these:
+   - scope or specificity (e.g. "Should it cover all homework, or only essays?")
+   - who is affected (e.g. "Should the rule apply to all grades, or only first-year students?")
+   - where or when it applies (e.g. "Should the rule apply only at school, or also outside school?")
+   - exceptions or conditions (e.g. "Should there be an exception for emergencies?")
+   - who decides (e.g. "Should the school decide, or parents?")
+   - PRO/CON balance: if one side looks much easier to argue, ask about a change of scope that would make it fairer.
+   Questions you must NEVER ask:
+   - which side the motion should take ("allowing or banning?", "benefits or risks?", "beneficial or harmful?"): every motion is debated from both sides;
+   - about reasons, arguments, effects or impacts, or whether the motion should mention or consider them (e.g. "Should the motion mention comfort?", "Should the motion consider the impact on families?"): those belong in the debate, not in the motion;
+   - about a detail you have just decided in the motion (e.g. after narrowing it to first-year students, do not ask whether it should apply only to first-year students);
+   - the motion itself turned into a question ("Should schools ban phones?");
+   - anything already asked, or already answered by the teacher;
+   - generic questions ("Which do you prefer?", "Do these work for you?", "Would you like to refine them?");
+   - two questions joined in one sentence ("…, and should…?").
+   Ask about the most important point that is still open for a classroom debate with THESE students. Avoid unusual edge cases, and stay within the teacher's students (e.g. do not ask about middle school students when the class is a high school class, and do not offer the students' own school stage as an alternative, e.g. "only elementary students?" for an elementary class).
 6. Two proposals must be genuinely different motions (different scope, rule or angle). NEVER propose a motion together with its opposite (e.g. "Schools should ban X" and "Schools should allow X"): one motion already has a PRO side and a CON side.
-7. When the teacher refines an idea, revise the current motion so it fully reflects what the teacher just said (e.g. if they say "also outside school", the motion must cover outside school), rather than starting over.
+7. When the teacher refines an idea, revise the current motion so it fully reflects what the teacher just said (e.g. if they say "also outside school", the motion must cover outside school), rather than starting over. Rewrite the whole motion so it stays logical: never just append a phrase that contradicts the rest (e.g. not "during school hours, both inside and outside school").
 8. Quick requests:
    - "Easier": make the ENGLISH easier (more common words, simpler structure, more concrete wording). Keep the same topic and the same intellectual depth.
    - "More challenging": make the wording more precise or nuanced (conditions, qualifiers, more abstract or topic-specific vocabulary) and/or the issue more complex, appropriate to the students' age.
@@ -132,7 +147,7 @@ ${contextLines.length ? '\n## Session context\n' + contextLines.join('\n') + '\n
 
 ## How to write a motion
 - Use a policy motion: "[who] should [do what]" (e.g. "Junior high schools should prohibit students from dating."), unless the teacher asks for another type.
-- State the policy only. Do NOT add reasons or purposes ("…to protect students", "…to ensure skills"): they argue for one side.
+- State the policy only. Do NOT add reasons or purposes ("…to protect students", "…to ensure skills", "…due to its negative effects"): they argue for one side.
 - Use neutral words. Avoid loaded words that favour one side (e.g. "junk food", "unfair", "harmful", "waste").
 
 ## Motion quality (check every proposed motion critically)
@@ -291,7 +306,7 @@ export function isMirrorPair(a: string, b: string): boolean {
 // The model tends to mark every check as passed, so problems that can be
 // detected reliably are added here.
 
-const REASON_CLAUSE = /\b(as it|as they|because|since|so that|in order to|to (ensure|protect|prevent|improve|promote|uphold|maintain|reduce|increase|avoid))\b/i;
+const REASON_CLAUSE = /\b(as it|as they|because|since|so that|due to|for the sake of|in order to|to (ensure|protect|prevent|improve|promote|uphold|maintain|preserve|reduce|increase|avoid))\b/i;
 const SENSITIVE = /\b(dating|to date|go on dates?|boyfriends?|girlfriends?|relationships?|romantic|romance|make-?up|hairstyles?|hair colou?r|appearance|body image|weight|religions?|religious|politics|political|elections?|family income|poverty)\b/i;
 const ADULT_STAGES: Stage[] = ['university', 'adult'];
 
@@ -347,4 +362,76 @@ export function previousMotions(messages: DesignerMessage[]): string[] {
 export function sameMotion(a: string, b: string): boolean {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   return norm(a) === norm(b);
+}
+
+// ── Reply review (problems the model may ignore despite the prompt) ──────────
+
+const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+const QUESTION_FILLER = new Set(['should', 'the', 'a', 'an', 'this', 'that', 'it', 'motion', 'rule', 'rules', 'debate', 'apply', 'applies', 'to', 'or', 'and', 'only', 'just', 'also', 'all', 'some', 'any', 'be', 'for', 'of', 'in', 'on', 'at', 'like', 'such', 'as', 'there', 'include', 'focus', 'we', 'you', 'your', 'certain', 'specific']);
+// Overlap of meaningful words only, for spotting the same question asked in different words
+function questionOverlap(a: string, b: string): { ratio: number; shared: number } {
+  const A = new Set(words(a).filter(w => !QUESTION_FILLER.has(w))), B = new Set(words(b).filter(w => !QUESTION_FILLER.has(w)));
+  if (!A.size || !B.size) return { ratio: 0, shared: 0 };
+  const shared = [...A].filter(w => B.has(w)).length;
+  return { ratio: shared / Math.min(A.size, B.size), shared };
+}
+function overlap(a: string, b: string): number {
+  const A = new Set(words(a)), B = new Set(words(b));
+  if (!A.size || !B.size) return 0;
+  return [...A].filter(w => B.has(w)).length / Math.max(A.size, B.size);
+}
+
+// The question part of an assistant message in the history (last paragraph before the motions list)
+export function previousQuestions(messages: DesignerMessage[]): string[] {
+  return messages
+    .filter(m => m.role === 'assistant')
+    .map(m => m.content.split('[Motions proposed:')[0].trim().split('\n\n').pop()?.trim() ?? '')
+    .filter(q => q.endsWith('?'));
+}
+
+// Asking for reasons/arguments, or to put them into the motion ("an exception for medical reasons" is fine)
+const ASKS_FOR_REASONS = /\b(mention|consider|address|discuss|reflect)\w*\b[^?]*\b(impacts?|effects?|affects?|affected|consequences?|how (this|it))\b|\bwhy\b|\bwhat\b[^?]*\b(reasons?|arguments?)\b|\b(mention|include|add|state|list|specify|explain|give)\b[^?]*\b(reasons?|arguments?|benefits?|advantages?)\b|\b(reasons?|arguments?)\s+(for|against|why|behind)\b/i;
+// Asking which side the motion should take: a choice between a positive and a negative framing
+const ASKS_WHICH_SIDE = /\b(benefits?|advantages?|positives?|beneficial|helpful)\b[^?]*\bor\b[^?]*\b(risks?|harms?|drawbacks?|disadvantages?|negatives?|harmful)\b|\b(risks?|harms?|drawbacks?|disadvantages?|negatives?|harmful)\b[^?]*\bor\b[^?]*\b(benefits?|advantages?|positives?|beneficial|helpful)\b|\b(pros and cons|benefits and (drawbacks|risks|challenges)|advantages and disadvantages|positives and negatives)\b|\b(about|focus on|be)\b[^?]*\b(allow\w*|ban\w*|permit\w*)\b[^?]*\bor\b[^?]*\b(ban\w*|allow\w*|restrict\w*|permit\w*|prohibit\w*)\b/i;
+const TWO_QUESTIONS = /,?\s+and\s+(should|will|would|do|does|is|are|can|could)\s/i;
+
+// Returns the problems found in a reply (empty when it is fine)
+export function reviewReply(reply: DesignerReply, messages: DesignerMessage[]): string[] {
+  const problems: string[] = [];
+  const question = reply.message.split('\n\n').pop() ?? '';
+  const lastTeacher = messages[messages.length - 1]?.content ?? '';
+
+  if (question.endsWith('?')) {
+    if (ASKS_FOR_REASONS.test(question)) problems.push('Your question asks about reasons or arguments. Ask about scope, who is affected, where/when, exceptions or who decides instead.');
+    if (ASKS_WHICH_SIDE.test(question)) problems.push('Your question asks which side the motion should take (e.g. allow vs ban, benefits vs risks). Both sides are debated anyway; ask about scope, who is affected, where/when, exceptions or who decides instead.');
+    if (TWO_QUESTIONS.test(question)) problems.push('Your question joins two questions. Ask only one.');
+    if (reply.proposals.some(p => overlap(question, p.motion) >= 0.75)) problems.push('Your question just repeats the motion. Ask something that would improve it.');
+    if (previousQuestions(messages).some(q => overlap(question, q) >= 0.7 || (({ ratio, shared }) => ratio >= 0.75 && shared >= 3)(questionOverlap(question, q)))) problems.push('You already asked this question. Ask about a different aspect.');
+  }
+  // Asking whether to undo the detail just added (e.g. "only first-year students, or all grades?")
+  const earlierForDetail = previousMotions(messages);
+  if (question.endsWith('?') && earlierForDetail.length && !isOtherIdeasRequest(lastTeacher) && /\b(only|all|rather than|instead)\b/i.test(question)) {
+    const before = new Set(earlierForDetail.flatMap(words));
+    const added = new Set(reply.proposals.flatMap(p => words(p.motion)).filter(w => w.length > 3 && !before.has(w) && !POLARITY_WORDS.has(w)));
+    if (new Set(words(question).filter(w => added.has(w))).size >= 2) problems.push('Your question asks about the detail you just added to the motion. Ask about a different point that is still open.');
+  }
+  if (reply.proposals.some(p => REASON_CLAUSE.test(p.motion))) problems.push('A motion includes a reason or purpose (e.g. "to ensure…", "due to…"). State only the policy.');
+
+  // A typed answer from the teacher should change the motion
+  const earlier = previousMotions(messages);
+  if (reply.proposals.length && earlier.length && !isOtherIdeasRequest(lastTeacher)
+      && reply.proposals.every(p => earlier.some(e => sameMotion(e, p.motion)))) {
+    problems.push(`Your motions are unchanged. Revise them so they reflect the teacher's latest answer: "${lastTeacher.slice(0, 200)}".`);
+  }
+  return problems;
+}
+
+// After the retry: never show a bad question or a motion with a built-in reason
+export function dropRemainingProblems(reply: DesignerReply, messages: DesignerMessage[]): DesignerReply {
+  const problems = reviewReply(reply, messages);
+  let message = reply.message;
+  const questionProblem = problems.some(p => p.startsWith('Your question') || p.startsWith('You already asked'));
+  if (questionProblem) message = message.split('\n\n').slice(0, -1).join('\n\n');
+  const clean = reply.proposals.filter(p => !REASON_CLAUSE.test(p.motion));
+  return { ...reply, message, proposals: clean.length ? clean : reply.proposals };
 }

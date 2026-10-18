@@ -14,7 +14,9 @@ import {
   cleanItem,
   composeMessage,
   isMirrorPair,
+  dropRemainingProblems,
   isOtherIdeasRequest,
+  reviewReply,
   previousMotions,
   sameMotion,
   trimHistory,
@@ -61,6 +63,19 @@ export async function POST(req: NextRequest) {
       const fresh = retry.proposals.filter(p => !isRepeat(p.motion));
       if (fresh.length) reply = { ...retry, proposals: fresh };
     }
+    // Review the question and motions; ask once more with specific feedback if needed
+    const problems = reviewReply(reply, messages);
+    if (problems.length) {
+      const retry = sanitizeReply(await complete([
+        ...chat,
+        { role: 'assistant', content: JSON.stringify({ comment: reply.message, proposals: reply.proposals.map(p => p.motion) }) },
+        { role: 'system', content: `Rewrite your reply and fix these problems:\n${problems.map(p => `- ${p}`).join('\n')}` },
+      ]), profile);
+      if (!(isOtherIdeasRequest(messages[messages.length - 1].content) && retry.proposals.some(p => isRepeat(p.motion)))) {
+        reply = retry;
+      }
+    }
+    reply = dropRemainingProblems(reply, messages);
   } catch {
     return NextResponse.json({ error: 'AI unavailable' }, { status: 502 });
   }
